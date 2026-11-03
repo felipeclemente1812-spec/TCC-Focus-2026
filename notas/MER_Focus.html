@@ -1,0 +1,876 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MER do Focus</title>
+<style>
+:root{--bg:#f6f4fa;--card:#fff;--text:#1e1b4b;--muted:#5b5570;--accent:#5B21B6}
+body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,Segoe UI,Roboto,sans-serif}
+header{background:linear-gradient(135deg,#5B21B6,#1e1b4b);color:#fff;padding:28px 16px}
+header h1{margin:0 0 6px;font-size:24px} header p{margin:0;opacity:.85;max-width:820px}
+main{max-width:1200px;margin:0 auto;padding:16px}
+section{background:var(--card);border-radius:14px;padding:16px;margin:16px 0;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+section h2{margin:0 0 4px;font-size:18px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center}
+section p.desc{margin:0 0 10px;color:var(--muted);font-size:14px}
+.diagram{overflow-x:auto} .diagram svg{max-width:100%;height:auto}
+button{background:var(--accent);color:#fff;border:0;border-radius:8px;padding:7px 12px;font-size:13px;cursor:pointer;margin-left:6px}
+button.alt{background:#ede9fe;color:var(--accent)}
+.legend{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px 16px;font-size:13px}
+.legend div{display:flex;align-items:center;gap:10px}
+footer{color:var(--muted);font-size:12px;text-align:center;padding:20px}
+</style></head><body>
+<header><h1>MER — Focus</h1><p>Modelo Entidade-Relacionamento (modelo conceitual, notação de Chen com cardinalidade (mín,máx)). Use “Baixar PNG” para colar cada diagrama no TCC. Leitura, regras e a passagem para o DER em notas/7_MER.md.</p></header>
+<main>
+<section><h2>Legenda</h2><div class="legend">
+<div><svg width="70" height="30"><rect x="2" y="4" width="66" height="22" fill="#ede9fe" stroke="#5B21B6" stroke-width="2"/></svg>Entidade</div>
+<div><svg width="70" height="30"><rect x="2" y="4" width="66" height="22" fill="#ede9fe" stroke="#5B21B6" stroke-width="1.5"/><rect x="6" y="8" width="58" height="14" fill="none" stroke="#5B21B6" stroke-width="1.5"/></svg>Entidade fraca</div>
+<div><svg width="70" height="30"><polygon points="35,2 68,15 35,28 2,15" fill="#fef3c7" stroke="#b45309" stroke-width="1.5"/></svg>Relacionamento</div>
+<div><svg width="70" height="30"><polygon points="35,2 68,15 35,28 2,15" fill="#fef3c7" stroke="#b45309" stroke-width="1.5"/><polygon points="35,7 56,15 35,23 14,15" fill="none" stroke="#b45309" stroke-width="1.5"/></svg>Relacionamento identificador</div>
+<div><svg width="70" height="30"><rect x="2" y="4" width="66" height="22" rx="11" fill="#fff" stroke="#6b7280"/></svg>Atributo</div>
+<div><svg width="70" height="30"><rect x="2" y="4" width="66" height="22" rx="11" fill="#fff" stroke="#6b7280"/><text x="35" y="19" font-size="11" text-anchor="middle" font-weight="bold" text-decoration="underline">id</text></svg>Identificador (chave)</div>
+<div><svg width="70" height="30"><rect x="2" y="4" width="66" height="22" rx="11" fill="#fff" stroke="#6b7280"/><text x="35" y="18" font-size="11" text-anchor="middle">dia</text><line x1="26" y1="21" x2="44" y2="21" stroke="#1f2937" stroke-dasharray="3 2"/></svg>Chave parcial</div>
+<div><svg width="70" height="30"><rect x="2" y="4" width="66" height="22" rx="11" fill="#fff" stroke="#6b7280" stroke-dasharray="4 3"/></svg>Atributo derivado</div>
+<div><svg width="70" height="30"><rect x="2" y="4" width="66" height="22" rx="11" fill="#fff" stroke="#6b7280"/><rect x="6" y="7.5" width="58" height="15" rx="7.5" fill="none" stroke="#6b7280"/></svg>Atributo multivalorado</div>
+<div><b style="width:70px;text-align:center">(mín,máx)</b>Cardinalidade daquele lado</div>
+</div></section>
+<section><h2><span>0. Visão geral</span><span><button onclick="baixar(0,'png')">Baixar PNG</button><button class="alt" onclick="baixar(0,'svg')">SVG</button></span></h2><p class="desc">Entidades principais e como se relacionam. Os atributos aparecem nos diagramas de cada módulo.</p><div class="diagram"><pre class="mermaid" id="d0">flowchart LR
+    USUARIO["USUÁRIO"]:::entidade
+    CONQUISTA["CONQUISTA"]:::entidade
+    CONCLUSAO_XP["CONCLUSÃO DE XP"]:::entidade
+    CATEGORIA["CATEGORIA"]:::entidade
+    DESAFIO["DESAFIO"]:::entidade
+    HABITO["HÁBITO"]:::entidade
+    META_PROPRIA["META PRÓPRIA"]:::entidade
+    LIVRO["LIVRO"]:::entidade
+    TRANSACAO["TRANSAÇÃO"]:::entidade
+    COFRINHO["COFRINHO"]:::entidade
+    PROJETO["PROJETO"]:::entidade
+    COMPROMISSO["COMPROMISSO"]:::entidade
+    GRUPO["GRUPO"]:::entidade
+    TAREFA_GRUPO["TAREFA DO GRUPO"]:::entidade
+    ENCONTRO["ENCONTRO"]:::entidade
+    POSTAGEM["POSTAGEM"]:::entidade
+    R1{"desbloqueia"}:::rel
+    USUARIO ---|"(0,n)"| R1
+    R1 ---|"(0,n)"| CONQUISTA
+    R2{"ganha"}:::rel
+    USUARIO ---|"(1,1)"| R2
+    R2 ---|"(0,n)"| CONCLUSAO_XP
+    R3{"monta rotina"}:::rel
+    USUARIO ---|"(0,n)"| R3
+    R3 ---|"(0,n)"| DESAFIO
+    R4{"agrupa"}:::rel
+    CATEGORIA ---|"(1,1)"| R4
+    R4 ---|"(1,n)"| DESAFIO
+    R5{"cria"}:::rel
+    USUARIO ---|"(1,1)"| R5
+    R5 ---|"(0,n)"| HABITO
+    R6{"cria"}:::rel
+    USUARIO ---|"(1,1)"| R6
+    R6 ---|"(0,n)"| META_PROPRIA
+    R7{"tem na estante"}:::rel
+    USUARIO ---|"(1,1)"| R7
+    R7 ---|"(0,n)"| LIVRO
+    R8{"registra"}:::rel
+    USUARIO ---|"(1,1)"| R8
+    R8 ---|"(0,n)"| TRANSACAO
+    R9{"possui"}:::rel
+    USUARIO ---|"(1,1)"| R9
+    R9 ---|"(0,n)"| COFRINHO
+    R10{"acompanha"}:::rel
+    USUARIO ---|"(1,1)"| R10
+    R10 ---|"(0,n)"| PROJETO
+    R11{"agenda"}:::rel
+    USUARIO ---|"(1,1)"| R11
+    R11 ---|"(0,n)"| COMPROMISSO
+    R12{"participa"}:::rel
+    USUARIO ---|"(1,n)"| R12
+    R12 ---|"(0,n)"| GRUPO
+    R13{"define"}:::rel
+    GRUPO ---|"(1,1)"| R13
+    R13 ---|"(0,n)"| TAREFA_GRUPO
+    R14{"marca"}:::rel
+    GRUPO ---|"(1,1)"| R14
+    R14 ---|"(0,n)"| ENCONTRO
+    R15{"publica"}:::rel
+    USUARIO ---|"(1,1)"| R15
+    R15 ---|"(0,n)"| POSTAGEM
+    R16{"mural de"}:::rel
+    GRUPO ---|"(0,1)"| R16
+    R16 ---|"(0,n)"| POSTAGEM
+    classDef entidade fill:#ede9fe,stroke:#5B21B6,stroke-width:2px,color:#1e1b4b,font-weight:bold
+    classDef fraca fill:#ede9fe,stroke:#5B21B6,stroke-width:1.5px,color:#1e1b4b,font-weight:bold
+    classDef rel fill:#fef3c7,stroke:#b45309,stroke-width:1.5px,color:#451a03
+    classDef ident fill:#fef3c7,stroke:#b45309,stroke-width:1.5px,color:#451a03
+    classDef atrib fill:#fff,stroke:#6b7280,color:#1f2937
+    classDef chave fill:#fff,stroke:#6b7280,color:#1f2937,font-weight:bold
+    classDef parcial fill:#fff,stroke:#6b7280,color:#1f2937
+    classDef derivado fill:#fff,stroke:#6b7280,stroke-dasharray:4 3,color:#1f2937
+    classDef multi fill:#fff,stroke:#6b7280,color:#1f2937</pre></div></section>
+<section><h2><span>1. Usuário e gamificação</span><span><button onclick="baixar(1,'png')">Baixar PNG</button><button class="alt" onclick="baixar(1,'svg')">SVG</button></span></h2><p class="desc">Nível, sequência e XP total são derivados: calculados a partir das conclusões de XP, não guardados.</p><div class="diagram"><pre class="mermaid" id="d1">flowchart LR
+    USUARIO["USUÁRIO"]:::entidade
+    A1(["uid"]):::chave
+    USUARIO --- A1
+    A2(["nome"]):::atrib
+    USUARIO --- A2
+    A3(["username (único)"]):::atrib
+    USUARIO --- A3
+    A4(["e-mail (único)"]):::atrib
+    USUARIO --- A4
+    A5(["bio"]):::atrib
+    USUARIO --- A5
+    A6(["status"]):::atrib
+    USUARIO --- A6
+    A7(["nível"]):::derivado
+    USUARIO --- A7
+    A8(["sequência de dias"]):::derivado
+    USUARIO --- A8
+    A9(["XP total"]):::derivado
+    USUARIO --- A9
+    CONQUISTA["CONQUISTA"]:::entidade
+    A10(["id"]):::chave
+    CONQUISTA --- A10
+    A11(["título"]):::atrib
+    CONQUISTA --- A11
+    A12(["descrição"]):::atrib
+    CONQUISTA --- A12
+    CONCLUSAO_XP["CONCLUSÃO DE XP"]:::entidade
+    A13(["id (origem@período)"]):::chave
+    CONCLUSAO_XP --- A13
+    A14(["título"]):::atrib
+    CONCLUSAO_XP --- A14
+    A15(["xp"]):::atrib
+    CONCLUSAO_XP --- A15
+    A16(["data e hora"]):::atrib
+    CONCLUSAO_XP --- A16
+    R1{"desbloqueia"}:::rel
+    USUARIO ---|"(0,n)"| R1
+    R1 ---|"(0,n)"| CONQUISTA
+    A17(["desbloqueada em"]):::atrib
+    R1 --- A17
+    A18(["em destaque"]):::atrib
+    R1 --- A18
+    R2{"ganha"}:::rel
+    USUARIO ---|"(1,1)"| R2
+    R2 ---|"(0,n)"| CONCLUSAO_XP
+    classDef entidade fill:#ede9fe,stroke:#5B21B6,stroke-width:2px,color:#1e1b4b,font-weight:bold
+    classDef fraca fill:#ede9fe,stroke:#5B21B6,stroke-width:1.5px,color:#1e1b4b,font-weight:bold
+    classDef rel fill:#fef3c7,stroke:#b45309,stroke-width:1.5px,color:#451a03
+    classDef ident fill:#fef3c7,stroke:#b45309,stroke-width:1.5px,color:#451a03
+    classDef atrib fill:#fff,stroke:#6b7280,color:#1f2937
+    classDef chave fill:#fff,stroke:#6b7280,color:#1f2937,font-weight:bold
+    classDef parcial fill:#fff,stroke:#6b7280,color:#1f2937
+    classDef derivado fill:#fff,stroke:#6b7280,stroke-dasharray:4 3,color:#1f2937
+    classDef multi fill:#fff,stroke:#6b7280,color:#1f2937</pre></div></section>
+<section><h2><span>2. Rotina, desafios, hábitos e lembretes</span><span><button onclick="baixar(2,'png')">Baixar PNG</button><button class="alt" onclick="baixar(2,'svg')">SVG</button></span></h2><p class="desc">“Monta rotina” é N:N com atributos: o nome e o lembrete personalizados pertencem à ligação usuário–desafio.</p><div class="diagram"><pre class="mermaid" id="d2">flowchart LR
+    USUARIO["USUÁRIO"]:::entidade
+    A1(["uid"]):::chave
+    USUARIO --- A1
+    CATEGORIA["CATEGORIA"]:::entidade
+    A2(["id"]):::chave
+    CATEGORIA --- A2
+    A3(["nome"]):::atrib
+    CATEGORIA --- A3
+    A4(["ícone"]):::atrib
+    CATEGORIA --- A4
+    DESAFIO["DESAFIO"]:::entidade
+    A5(["id"]):::chave
+    DESAFIO --- A5
+    A6(["título"]):::atrib
+    DESAFIO --- A6
+    A7(["frequência"]):::atrib
+    DESAFIO --- A7
+    A8(["xp"]):::atrib
+    DESAFIO --- A8
+    A9(["regra de conclusão"]):::atrib
+    DESAFIO --- A9
+    HABITO["HÁBITO"]:::entidade
+    A10(["id"]):::chave
+    HABITO --- A10
+    A11(["título"]):::atrib
+    HABITO --- A11
+    A12(["dias da semana"]):::multi
+    HABITO --- A12
+    A13(["horário"]):::atrib
+    HABITO --- A13
+    META_PROPRIA["META PRÓPRIA"]:::entidade
+    A14(["id"]):::chave
+    META_PROPRIA --- A14
+    A15(["título"]):::atrib
+    META_PROPRIA --- A15
+    A16(["frequência"]):::atrib
+    META_PROPRIA --- A16
+    A17(["dias da meta"]):::atrib
+    META_PROPRIA --- A17
+    CHECKIN_META["CHECK-IN DA META"]:::fraca
+    A18(["dia"]):::parcial
+    CHECKIN_META --- A18
+    A19(["anotação"]):::atrib
+    CHECKIN_META --- A19
+    CONFIG_LEMBRETES["CONFIG. DE LEMBRETES"]:::fraca
+    A20(["resumo da manhã"]):::atrib
+    CONFIG_LEMBRETES --- A20
+    A21(["aviso da noite"]):::atrib
+    CONFIG_LEMBRETES --- A21
+    A22(["dia do semanal"]):::atrib
+    CONFIG_LEMBRETES --- A22
+    PROVA["PROVA"]:::entidade
+    A23(["id"]):::chave
+    PROVA --- A23
+    A24(["período"]):::atrib
+    PROVA --- A24
+    A25(["texto"]):::atrib
+    PROVA --- A25
+    R1{"agrupa"}:::rel
+    CATEGORIA ---|"(1,1)"| R1
+    R1 ---|"(1,n)"| DESAFIO
+    R2{"monta rotina"}:::rel
+    USUARIO ---|"(0,n)"| R2
+    R2 ---|"(0,n)"| DESAFIO
+    A26(["título personalizado"]):::atrib
+    R2 --- A26
+    A27(["lembrete ligado"]):::atrib
+    R2 --- A27
+    A28(["horário do lembrete"]):::atrib
+    R2 --- A28
+    R3{"cria"}:::rel
+    USUARIO ---|"(1,1)"| R3
+    R3 ---|"(0,n)"| HABITO
+    R4{"cria"}:::rel
+    USUARIO ---|"(1,1)"| R4
+    R4 ---|"(0,n)"| META_PROPRIA
+    R5{"recebe"}:::ident
+    META_PROPRIA ---|"(1,1)"| R5
+    R5 ---|"(0,n)"| CHECKIN_META
+    R6{"configura"}:::ident
+    USUARIO ---|"(1,1)"| R6
+    R6 ---|"(0,1)"| CONFIG_LEMBRETES
+    R7{"envia"}:::rel
+    USUARIO ---|"(1,1)"| R7
+    R7 ---|"(0,n)"| PROVA
+    R8{"comprova"}:::rel
+    DESAFIO ---|"(1,1)"| R8
+    R8 ---|"(0,n)"| PROVA
+    classDef entidade fill:#ede9fe,stroke:#5B21B6,stroke-width:2px,color:#1e1b4b,font-weight:bold
+    classDef fraca fill:#ede9fe,stroke:#5B21B6,stroke-width:1.5px,color:#1e1b4b,font-weight:bold
+    classDef rel fill:#fef3c7,stroke:#b45309,stroke-width:1.5px,color:#451a03
+    classDef ident fill:#fef3c7,stroke:#b45309,stroke-width:1.5px,color:#451a03
+    classDef atrib fill:#fff,stroke:#6b7280,color:#1f2937
+    classDef chave fill:#fff,stroke:#6b7280,color:#1f2937,font-weight:bold
+    classDef parcial fill:#fff,stroke:#6b7280,color:#1f2937
+    classDef derivado fill:#fff,stroke:#6b7280,stroke-dasharray:4 3,color:#1f2937
+    classDef multi fill:#fff,stroke:#6b7280,color:#1f2937</pre></div></section>
+<section><h2><span>3. Estudos e leitura</span><span><button onclick="baixar(3,'png')">Baixar PNG</button><button class="alt" onclick="baixar(3,'svg')">SVG</button></span></h2><p class="desc">Uma resenha é opcional e única por livro (0,1). Um flashcard pode nascer de um resumo (anotação) ou ser avulso.</p><div class="diagram"><pre class="mermaid" id="d3">flowchart LR
+    USUARIO["USUÁRIO"]:::entidade
+    A1(["uid"]):::chave
+    USUARIO --- A1
+    ANOTACAO["ANOTAÇÃO"]:::entidade
+    A2(["id"]):::chave
+    ANOTACAO --- A2
+    A3(["título"]):::atrib
+    ANOTACAO --- A3
+    A4(["texto"]):::atrib
+    ANOTACAO --- A4
+    A5(["criada em"]):::atrib
+    ANOTACAO --- A5
+    FLASHCARD["FLASHCARD"]:::entidade
+    A6(["id"]):::chave
+    FLASHCARD --- A6
+    A7(["frente"]):::atrib
+    FLASHCARD --- A7
+    A8(["verso"]):::atrib
+    FLASHCARD --- A8
+    REVISAO_FLASHCARD["REVISÃO DE FLASHCARD"]:::entidade
+    A9(["id"]):::chave
+    REVISAO_FLASHCARD --- A9
+    A10(["dia"]):::atrib
+    REVISAO_FLASHCARD --- A10
+    A11(["acertou"]):::atrib
+    REVISAO_FLASHCARD --- A11
+    SIMULADO["SIMULADO"]:::entidade
+    A12(["id"]):::chave
+    SIMULADO --- A12
+    A13(["título"]):::atrib
+    SIMULADO --- A13
+    A14(["acertos"]):::atrib
+    SIMULADO --- A14
+    A15(["total de questões"]):::atrib
+    SIMULADO --- A15
+    VIDEOAULA["VIDEOAULA"]:::entidade
+    A16(["id"]):::chave
+    VIDEOAULA --- A16
+    A17(["título"]):::atrib
+    VIDEOAULA --- A17
+    A18(["link"]):::atrib
+    VIDEOAULA --- A18
+    A19(["assistida em"]):::atrib
+    VIDEOAULA --- A19
+    MAPA_MENTAL["MAPA MENTAL"]:::entidade
+    A20(["id"]):::chave
+    MAPA_MENTAL --- A20
+    A21(["escopo"]):::atrib
+    MAPA_MENTAL --- A21
+    A22(["título"]):::atrib
+    MAPA_MENTAL --- A22
+    A23(["palavras-chave"]):::multi
+    MAPA_MENTAL --- A23
+    LIVRO["LIVRO"]:::entidade
+    A24(["id"]):::chave
+    LIVRO --- A24
+    A25(["título"]):::atrib
+    LIVRO --- A25
+    A26(["autor"]):::atrib
+    LIVRO --- A26
+    A27(["páginas"]):::atrib
+    LIVRO --- A27
+    A28(["status"]):::atrib
+    LIVRO --- A28
+    REGISTRO_LEITURA["REGISTRO DE LEITURA"]:::entidade
+    A29(["id"]):::chave
+    REGISTRO_LEITURA --- A29
+    A30(["páginas"]):::atrib
+    REGISTRO_LEITURA --- A30
+    A31(["dia"]):::atrib
+    REGISTRO_LEITURA --- A31
+    CAPITULO["CAPÍTULO"]:::entidade
+    A32(["id"]):::chave
+    CAPITULO --- A32
+    A33(["número"]):::atrib
+    CAPITULO --- A33
+    A34(["dia"]):::atrib
+    CAPITULO --- A34
+    RESENHA["RESENHA"]:::entidade
+    A35(["id"]):::chave
+    RESENHA --- A35
+    A36(["texto"]):::atrib
+    RESENHA --- A36
+    A37(["nota"]):::atrib
+    RESENHA --- A37
+    A38(["pública"]):::atrib
+    RESENHA --- A38
+    VISITA_BIBLIOTECA["VISITA À BIBLIOTECA"]:::entidade
+    A39(["id"]):::chave
+    VISITA_BIBLIOTECA --- A39
+    A40(["mês"]):::atrib
+    VISITA_BIBLIOTECA --- A40
+    A41(["local"]):::atrib
+    VISITA_BIBLIOTECA --- A41
+    R1{"escreve"}:::rel
+    USUARIO ---|"(1,1)"| R1
+    R1 ---|"(0,n)"| ANOTACAO
+    R2{"gera"}:::rel
+    ANOTACAO ---|"(0,1)"| R2
+    R2 ---|"(0,n)"| FLASHCARD
+    R3{"cria"}:::rel
+    USUARIO ---|"(1,1)"| R3
+    R3 ---|"(0,n)"| FLASHCARD
+    R4{"é revisado"}:::rel
+    FLASHCARD ---|"(1,1)"| R4
+    R4 ---|"(0,n)"| REVISAO_FLASHCARD
+    R5{"faz"}:::rel
+    USUARIO ---|"(1,1)"| R5
+    R5 ---|"(0,n)"| SIMULADO
+    R6{"guarda"}:::rel
+    USUARIO ---|"(1,1)"| R6
+    R6 ---|"(0,n)"| VIDEOAULA
+    R7{"monta"}:::rel
+    USUARIO ---|"(1,1)"| R7
+    R7 ---|"(0,n)"| MAPA_MENTAL
+    R8{"tem na estante"}:::rel
+    USUARIO ---|"(1,1)"| R8
+    R8 ---|"(0,n)"| LIVRO
+    R9{"recebe"}:::rel
+    LIVRO ---|"(1,1)"| R9
+    R9 ---|"(0,n)"| REGISTRO_LEITURA
+    R10{"tem"}:::rel
+    LIVRO ---|"(1,1)"| R10
+    R10 ---|"(0,n)"| CAPITULO
+    R11{"avaliado em"}:::rel
+    LIVRO ---|"(1,1)"| R11
+    R11 ---|"(0,1)"| RESENHA
+    R12{"registra"}:::rel
+    USUARIO ---|"(1,1)"| R12
+    R12 ---|"(0,n)"| VISITA_BIBLIOTECA
+    R13{"escolhido em"}:::rel
+    LIVRO ---|"(1,1)"| R13
+    R13 ---|"(0,n)"| VISITA_BIBLIOTECA
+    classDef entidade fill:#ede9fe,stroke:#5B21B6,stroke-width:2px,color:#1e1b4b,font-weight:bold
+    classDef fraca fill:#ede9fe,stroke:#5B21B6,stroke-width:1.5px,color:#1e1b4b,font-weight:bold
+    classDef rel fill:#fef3c7,stroke:#b45309,stroke-width:1.5px,color:#451a03
+    classDef ident fill:#fef3c7,stroke:#b45309,stroke-width:1.5px,color:#451a03
+    classDef atrib fill:#fff,stroke:#6b7280,color:#1f2937
+    classDef chave fill:#fff,stroke:#6b7280,color:#1f2937,font-weight:bold
+    classDef parcial fill:#fff,stroke:#6b7280,color:#1f2937
+    classDef derivado fill:#fff,stroke:#6b7280,stroke-dasharray:4 3,color:#1f2937
+    classDef multi fill:#fff,stroke:#6b7280,color:#1f2937</pre></div></section>
+<section><h2><span>4. Finanças (funções do Squill)</span><span><button onclick="baixar(4,'png')">Baixar PNG</button><button class="alt" onclick="baixar(4,'svg')">SVG</button></span></h2><p class="desc">Dia sem gasto e mês fechado só existem ligados a um usuário: são entidades fracas identificadas pela data.</p><div class="diagram"><pre class="mermaid" id="d4">flowchart LR
+    USUARIO["USUÁRIO"]:::entidade
+    A1(["uid"]):::chave
+    USUARIO --- A1
+    TRANSACAO["TRANSAÇÃO"]:::entidade
+    A2(["id"]):::chave
+    TRANSACAO --- A2
+    A3(["tipo"]):::atrib
+    TRANSACAO --- A3
+    A4(["nome"]):::atrib
+    TRANSACAO --- A4
+    A5(["valor"]):::atrib
+    TRANSACAO --- A5
+    A6(["categoria"]):::atrib
+    TRANSACAO --- A6
+    A7(["dia"]):::atrib
+    TRANSACAO --- A7
+    COFRINHO["COFRINHO"]:::entidade
+    A8(["id"]):::chave
+    COFRINHO --- A8
+    A9(["nome"]):::atrib
+    COFRINHO --- A9
+    A10(["valor alvo"]):::atrib
+    COFRINHO --- A10
+    A11(["prazo"]):::atrib
+    COFRINHO --- A11
+    A12(["total guardado"]):::derivado
+    COFRINHO --- A12
+    DEPOSITO["DEPÓSITO"]:::entidade
+    A13(["id"]):::chave
+    DEPOSITO --- A13
+    A14(["valor"]):::atrib
+    DEPOSITO --- A14
+    A15(["dia"]):::atrib
+    DEPOSITO --- A15
+    CONFIG_FINANCAS["CONFIG. DE FINANÇAS"]:::fraca
+    A16(["limite de gastos/mês"]):::atrib
+    CONFIG_FINANCAS --- A16
+    A17(["meta de economia/mês"]):::atrib
+    CONFIG_FINANCAS --- A17
+    DIA_SEM_GASTO["DIA SEM GASTO"]:::fraca
+    A18(["dia"]):::parcial
+    DIA_SEM_GASTO --- A18
+    MES_FECHADO["MÊS FECHADO"]:::fraca
+    A19(["mês"]):::parcial
+    MES_FECHADO --- A19
+    ARTIGO["ARTIGO"]:::entidade
+    A20(["id"]):::chave
+    ARTIGO --- A20
+    A21(["título"]):::atrib
+    ARTIGO --- A21
+    R1{"registra"}:::rel
+    USUARIO ---|"(1,1)"| R1
+    R1 ---|"(0,n)"| TRANSACAO
+    R2{"possui"}:::rel
+    USUARIO ---|"(1,1)"| R2
+    R2 ---|"(0,n)"| COFRINHO
+    R3{"recebe"}:::rel
+    COFRINHO ---|"(1,1)"| R3
+    R3 ---|"(0,n)"| DEPOSITO
+    R4{"define"}:::ident
+    USUARIO ---|"(1,1)"| R4
+    R4 ---|"(0,1)"| CONFIG_FINANCAS
+    R5{"marca"}:::ident
+    USUARIO ---|"(1,1)"| R5
+    R5 ---|"(0,n)"| DIA_SEM_GASTO
+    R6{"fecha"}:::ident
+    USUARIO ---|"(1,1)"| R6
+    R6 ---|"(0,n)"| MES_FECHADO
+    R7{"lê"}:::rel
+    USUARIO ---|"(0,n)"| R7
+    R7 ---|"(0,n)"| ARTIGO
+    classDef entidade fill:#ede9fe,stroke:#5B21B6,stroke-width:2px,color:#1e1b4b,font-weight:bold
+    classDef fraca fill:#ede9fe,stroke:#5B21B6,stroke-width:1.5px,color:#1e1b4b,font-weight:bold
+    classDef rel fill:#fef3c7,stroke:#b45309,stroke-width:1.5px,color:#451a03
+    classDef ident fill:#fef3c7,stroke:#b45309,stroke-width:1.5px,color:#451a03
+    classDef atrib fill:#fff,stroke:#6b7280,color:#1f2937
+    classDef chave fill:#fff,stroke:#6b7280,color:#1f2937,font-weight:bold
+    classDef parcial fill:#fff,stroke:#6b7280,color:#1f2937
+    classDef derivado fill:#fff,stroke:#6b7280,stroke-dasharray:4 3,color:#1f2937
+    classDef multi fill:#fff,stroke:#6b7280,color:#1f2937</pre></div></section>
+<section><h2><span>5. Grupos e social</span><span><button onclick="baixar(5,'png')">Baixar PNG</button><button class="alt" onclick="baixar(5,'svg')">SVG</button></span></h2><p class="desc">“Participa” guarda o papel (criador, ADM ou membro). A economia mensal é fraca e depende do grupo e do usuário ao mesmo tempo.</p><div class="diagram"><pre class="mermaid" id="d5">flowchart LR
+    USUARIO["USUÁRIO"]:::entidade
+    A1(["uid"]):::chave
+    USUARIO --- A1
+    A2(["nome"]):::atrib
+    USUARIO --- A2
+    GRUPO["GRUPO"]:::entidade
+    A3(["id"]):::chave
+    GRUPO --- A3
+    A4(["nome"]):::atrib
+    GRUPO --- A4
+    A5(["código (único)"]):::atrib
+    GRUPO --- A5
+    A6(["comparar economia"]):::atrib
+    GRUPO --- A6
+    A7(["bônus de XP"]):::atrib
+    GRUPO --- A7
+    CONVITE["CONVITE"]:::fraca
+    A8(["@usuário ou e-mail"]):::parcial
+    CONVITE --- A8
+    A9(["status"]):::atrib
+    CONVITE --- A9
+    TAREFA_GRUPO["TAREFA DO GRUPO"]:::entidade
+    A10(["id"]):::chave
+    TAREFA_GRUPO --- A10
+    A11(["título"]):::atrib
+    TAREFA_GRUPO --- A11
+    A12(["frequência"]):::atrib
+    TAREFA_GRUPO --- A12
+    A13(["regra"]):::atrib
+    TAREFA_GRUPO --- A13
+    CONCLUSAO_GRUPO["CONCLUSÃO NO GRUPO"]:::entidade
+    A14(["id"]):::chave
+    CONCLUSAO_GRUPO --- A14
+    A15(["período"]):::atrib
+    CONCLUSAO_GRUPO --- A15
+    A16(["prova"]):::atrib
+    CONCLUSAO_GRUPO --- A16
+    A17(["status"]):::atrib
+    CONCLUSAO_GRUPO --- A17
+    ENCONTRO["ENCONTRO"]:::entidade
+    A18(["id"]):::chave
+    ENCONTRO --- A18
+    A19(["título"]):::atrib
+    ENCONTRO --- A19
+    A20(["dia"]):::atrib
+    ENCONTRO --- A20
+    A21(["hora"]):::atrib
+    ENCONTRO --- A21
+    A22(["local"]):::atrib
+    ENCONTRO --- A22
+    POSTAGEM["POSTAGEM"]:::entidade
+    A23(["id"]):::chave
+    POSTAGEM --- A23
+    A24(["texto"]):::atrib
+    POSTAGEM --- A24
+    A25(["imagem"]):::atrib
+    POSTAGEM --- A25
+    A26(["criada em"]):::atrib
+    POSTAGEM --- A26
+    ECONOMIA_MENSAL["ECONOMIA MENSAL"]:::fraca
+    A27(["mês"]):::parcial
+    ECONOMIA_MENSAL --- A27
+    A28(["valor guardado"]):::atrib
+    ECONOMIA_MENSAL --- A28
+    R1{"é dono"}:::rel
+    USUARIO ---|"(1,1)"| R1
+    R1 ---|"(0,n)"| GRUPO
+    R2{"participa"}:::rel
+    USUARIO ---|"(1,n)"| R2
+    R2 ---|"(0,n)"| GRUPO
+    A29(["papel"]):::atrib
+    R2 --- A29
+    A30(["entrou em"]):::atrib
+    R2 --- A30
+    R3{"envia"}:::ident
+    GRUPO ---|"(1,1)"| R3
+    R3 ---|"(0,n)"| CONVITE
+    R4{"define"}:::rel
+    GRUPO ---|"(1,1)"| R4
+    R4 ---|"(0,n)"| TAREFA_GRUPO
+    R5{"cria"}:::rel
+    USUARIO ---|"(1,1)"| R5
+    R5 ---|"(0,n)"| TAREFA_GRUPO
+    R6{"é concluída"}:::rel
+    TAREFA_GRUPO ---|"(1,1)"| R6
+    R6 ---|"(0,n)"| CONCLUSAO_GRUPO
+    R7{"conclui"}:::rel
+    USUARIO ---|"(1,1)"| R7
+    R7 ---|"(0,n)"| CONCLUSAO_GRUPO
+    R8{"aprova"}:::rel
+    USUARIO ---|"(0,1)"| R8
+    R8 ---|"(0,n)"| CONCLUSAO_GRUPO
+    R9{"marca"}:::rel
+    GRUPO ---|"(1,1)"| R9
+    R9 ---|"(0,n)"| ENCONTRO
+    R10{"confirma presença"}:::rel
+    USUARIO ---|"(0,n)"| R10
+    R10 ---|"(0,n)"| ENCONTRO
+    R11{"publica"}:::rel
+    USUARIO ---|"(1,1)"| R11
+    R11 ---|"(0,n)"| POSTAGEM
+    R12{"mural de"}:::rel
+    GRUPO ---|"(0,1)"| R12
+    R12 ---|"(0,n)"| POSTAGEM
+    R13{"guarda"}:::ident
+    USUARIO ---|"(1,1)"| R13
+    R13 ---|"(0,n)"| ECONOMIA_MENSAL
+    R14{"compara"}:::ident
+    GRUPO ---|"(1,1)"| R14
+    R14 ---|"(0,n)"| ECONOMIA_MENSAL
+    classDef entidade fill:#ede9fe,stroke:#5B21B6,stroke-width:2px,color:#1e1b4b,font-weight:bold
+    classDef fraca fill:#ede9fe,stroke:#5B21B6,stroke-width:1.5px,color:#1e1b4b,font-weight:bold
+    classDef rel fill:#fef3c7,stroke:#b45309,stroke-width:1.5px,color:#451a03
+    classDef ident fill:#fef3c7,stroke:#b45309,stroke-width:1.5px,color:#451a03
+    classDef atrib fill:#fff,stroke:#6b7280,color:#1f2937
+    classDef chave fill:#fff,stroke:#6b7280,color:#1f2937,font-weight:bold
+    classDef parcial fill:#fff,stroke:#6b7280,color:#1f2937
+    classDef derivado fill:#fff,stroke:#6b7280,stroke-dasharray:4 3,color:#1f2937
+    classDef multi fill:#fff,stroke:#6b7280,color:#1f2937</pre></div></section>
+<section><h2><span>6. Planejamento</span><span><button onclick="baixar(6,'png')">Baixar PNG</button><button class="alt" onclick="baixar(6,'svg')">SVG</button></span></h2><p class="desc">Anexos também podem pertencer a mapas mentais e provas; aqui aparece a ligação com projetos.</p><div class="diagram"><pre class="mermaid" id="d6">flowchart LR
+    USUARIO["USUÁRIO"]:::entidade
+    A1(["uid"]):::chave
+    USUARIO --- A1
+    COMPROMISSO["COMPROMISSO"]:::entidade
+    A2(["id"]):::chave
+    COMPROMISSO --- A2
+    A3(["título"]):::atrib
+    COMPROMISSO --- A3
+    A4(["dia"]):::atrib
+    COMPROMISSO --- A4
+    A5(["hora"]):::atrib
+    COMPROMISSO --- A5
+    A6(["tipo"]):::atrib
+    COMPROMISSO --- A6
+    PROJETO["PROJETO"]:::entidade
+    A7(["id"]):::chave
+    PROJETO --- A7
+    A8(["tipo"]):::atrib
+    PROJETO --- A8
+    A9(["título"]):::atrib
+    PROJETO --- A9
+    A10(["prazo"]):::atrib
+    PROJETO --- A10
+    A11(["carga horária"]):::atrib
+    PROJETO --- A11
+    PROGRESSO_PROJETO["PROGRESSO DO PROJETO"]:::entidade
+    A12(["id"]):::chave
+    PROGRESSO_PROJETO --- A12
+    A13(["texto"]):::atrib
+    PROGRESSO_PROJETO --- A13
+    A14(["dia"]):::atrib
+    PROGRESSO_PROJETO --- A14
+    ANEXO["ANEXO"]:::entidade
+    A15(["id"]):::chave
+    ANEXO --- A15
+    A16(["nome"]):::atrib
+    ANEXO --- A16
+    A17(["url"]):::atrib
+    ANEXO --- A17
+    A18(["tipo"]):::atrib
+    ANEXO --- A18
+    CARTAO_META["CARTÃO DE META"]:::entidade
+    A19(["id"]):::chave
+    CARTAO_META --- A19
+    A20(["título"]):::atrib
+    CARTAO_META --- A20
+    A21(["motivo"]):::atrib
+    CARTAO_META --- A21
+    A22(["mês"]):::atrib
+    CARTAO_META --- A22
+    REVISAO_META["REVISÃO DA META"]:::fraca
+    A23(["semana"]):::parcial
+    REVISAO_META --- A23
+    A24(["resultado"]):::atrib
+    REVISAO_META --- A24
+    PENDENCIA["PENDÊNCIA"]:::entidade
+    A25(["id"]):::chave
+    PENDENCIA --- A25
+    A26(["título"]):::atrib
+    PENDENCIA --- A26
+    A27(["prazo"]):::atrib
+    PENDENCIA --- A27
+    A28(["feita em"]):::atrib
+    PENDENCIA --- A28
+    R1{"agenda"}:::rel
+    USUARIO ---|"(1,1)"| R1
+    R1 ---|"(0,n)"| COMPROMISSO
+    R2{"acompanha"}:::rel
+    USUARIO ---|"(1,1)"| R2
+    R2 ---|"(0,n)"| PROJETO
+    R3{"registra"}:::rel
+    PROJETO ---|"(1,1)"| R3
+    R3 ---|"(0,n)"| PROGRESSO_PROJETO
+    R4{"envia"}:::rel
+    USUARIO ---|"(1,1)"| R4
+    R4 ---|"(0,n)"| ANEXO
+    R5{"anexa"}:::rel
+    PROJETO ---|"(0,1)"| R5
+    R5 ---|"(0,n)"| ANEXO
+    R6{"cria"}:::rel
+    USUARIO ---|"(1,1)"| R6
+    R6 ---|"(0,n)"| CARTAO_META
+    R7{"é revisado"}:::ident
+    CARTAO_META ---|"(1,1)"| R7
+    R7 ---|"(0,n)"| REVISAO_META
+    R8{"anota"}:::rel
+    USUARIO ---|"(1,1)"| R8
+    R8 ---|"(0,n)"| PENDENCIA
+    classDef entidade fill:#ede9fe,stroke:#5B21B6,stroke-width:2px,color:#1e1b4b,font-weight:bold
+    classDef fraca fill:#ede9fe,stroke:#5B21B6,stroke-width:1.5px,color:#1e1b4b,font-weight:bold
+    classDef rel fill:#fef3c7,stroke:#b45309,stroke-width:1.5px,color:#451a03
+    classDef ident fill:#fef3c7,stroke:#b45309,stroke-width:1.5px,color:#451a03
+    classDef atrib fill:#fff,stroke:#6b7280,color:#1f2937
+    classDef chave fill:#fff,stroke:#6b7280,color:#1f2937,font-weight:bold
+    classDef parcial fill:#fff,stroke:#6b7280,color:#1f2937
+    classDef derivado fill:#fff,stroke:#6b7280,stroke-dasharray:4 3,color:#1f2937
+    classDef multi fill:#fff,stroke:#6b7280,color:#1f2937</pre></div></section>
+<section><h2><span>7. Bem-estar</span><span><button onclick="baixar(7,'png')">Baixar PNG</button><button class="alt" onclick="baixar(7,'svg')">SVG</button></span></h2><p class="desc">As horas de sono e o ritmo da corrida são derivados. A medição (passos, tempo de tela) depende do usuário e do desafio.</p><div class="diagram"><pre class="mermaid" id="d7">flowchart LR
+    USUARIO["USUÁRIO"]:::entidade
+    A1(["uid"]):::chave
+    USUARIO --- A1
+    CONFIG_SONO["CONFIG. DE SONO"]:::fraca
+    A2(["hora de dormir"]):::atrib
+    CONFIG_SONO --- A2
+    A3(["hora de acordar"]):::atrib
+    CONFIG_SONO --- A3
+    A4(["despertador ligado"]):::atrib
+    CONFIG_SONO --- A4
+    A5(["soneca"]):::atrib
+    CONFIG_SONO --- A5
+    REGISTRO_SONO["REGISTRO DE SONO"]:::fraca
+    A6(["dia"]):::parcial
+    REGISTRO_SONO --- A6
+    A7(["dormiu"]):::atrib
+    REGISTRO_SONO --- A7
+    A8(["acordou"]):::atrib
+    REGISTRO_SONO --- A8
+    A9(["horas"]):::derivado
+    REGISTRO_SONO --- A9
+    REFEICAO["REFEIÇÃO"]:::entidade
+    A10(["id"]):::chave
+    REFEICAO --- A10
+    A11(["dia da semana"]):::atrib
+    REFEICAO --- A11
+    A12(["turno"]):::atrib
+    REFEICAO --- A12
+    A13(["kcal"]):::atrib
+    REFEICAO --- A13
+    TREINO_DIA["DIA DE TREINO"]:::fraca
+    A14(["dia"]):::parcial
+    TREINO_DIA --- A14
+    CORRIDA["CORRIDA"]:::entidade
+    A15(["id"]):::chave
+    CORRIDA --- A15
+    A16(["km"]):::atrib
+    CORRIDA --- A16
+    A17(["minutos"]):::atrib
+    CORRIDA --- A17
+    A18(["dia"]):::atrib
+    CORRIDA --- A18
+    A19(["ritmo"]):::derivado
+    CORRIDA --- A19
+    HOBBY["HOBBY"]:::entidade
+    A20(["id"]):::chave
+    HOBBY --- A20
+    A21(["nome"]):::atrib
+    HOBBY --- A21
+    REGISTRO_HOBBY["REGISTRO DE HOBBY"]:::entidade
+    A22(["id"]):::chave
+    REGISTRO_HOBBY --- A22
+    A23(["minutos"]):::atrib
+    REGISTRO_HOBBY --- A23
+    A24(["dia"]):::atrib
+    REGISTRO_HOBBY --- A24
+    PESSOA["PESSOA"]:::entidade
+    A25(["id"]):::chave
+    PESSOA --- A25
+    A26(["nome"]):::atrib
+    PESSOA --- A26
+    CONTATO_PESSOA["CONTATO"]:::entidade
+    A27(["id"]):::chave
+    CONTATO_PESSOA --- A27
+    A28(["dia"]):::atrib
+    CONTATO_PESSOA --- A28
+    DESAFIO["DESAFIO"]:::entidade
+    A29(["id"]):::chave
+    DESAFIO --- A29
+    A30(["título"]):::atrib
+    DESAFIO --- A30
+    MEDICAO["MEDIÇÃO"]:::fraca
+    A31(["dia"]):::parcial
+    MEDICAO --- A31
+    A32(["valor"]):::atrib
+    MEDICAO --- A32
+    R1{"configura"}:::ident
+    USUARIO ---|"(1,1)"| R1
+    R1 ---|"(0,1)"| CONFIG_SONO
+    R2{"registra"}:::ident
+    USUARIO ---|"(1,1)"| R2
+    R2 ---|"(0,n)"| REGISTRO_SONO
+    R3{"planeja"}:::rel
+    USUARIO ---|"(1,1)"| R3
+    R3 ---|"(0,n)"| REFEICAO
+    R4{"marca"}:::ident
+    USUARIO ---|"(1,1)"| R4
+    R4 ---|"(0,n)"| TREINO_DIA
+    R5{"registra"}:::rel
+    USUARIO ---|"(1,1)"| R5
+    R5 ---|"(0,n)"| CORRIDA
+    R6{"tem"}:::rel
+    USUARIO ---|"(1,1)"| R6
+    R6 ---|"(0,n)"| HOBBY
+    R7{"registra"}:::rel
+    HOBBY ---|"(1,1)"| R7
+    R7 ---|"(0,n)"| REGISTRO_HOBBY
+    R8{"lista"}:::rel
+    USUARIO ---|"(1,1)"| R8
+    R8 ---|"(0,n)"| PESSOA
+    R9{"recebe"}:::rel
+    PESSOA ---|"(1,1)"| R9
+    R9 ---|"(0,n)"| CONTATO_PESSOA
+    R10{"é do tipo"}:::rel
+    DESAFIO ---|"(1,1)"| R10
+    R10 ---|"(0,n)"| CONTATO_PESSOA
+    R11{"mede"}:::ident
+    USUARIO ---|"(1,1)"| R11
+    R11 ---|"(0,n)"| MEDICAO
+    R12{"refere-se a"}:::ident
+    DESAFIO ---|"(1,1)"| R12
+    R12 ---|"(0,n)"| MEDICAO
+    classDef entidade fill:#ede9fe,stroke:#5B21B6,stroke-width:2px,color:#1e1b4b,font-weight:bold
+    classDef fraca fill:#ede9fe,stroke:#5B21B6,stroke-width:1.5px,color:#1e1b4b,font-weight:bold
+    classDef rel fill:#fef3c7,stroke:#b45309,stroke-width:1.5px,color:#451a03
+    classDef ident fill:#fef3c7,stroke:#b45309,stroke-width:1.5px,color:#451a03
+    classDef atrib fill:#fff,stroke:#6b7280,color:#1f2937
+    classDef chave fill:#fff,stroke:#6b7280,color:#1f2937,font-weight:bold
+    classDef parcial fill:#fff,stroke:#6b7280,color:#1f2937
+    classDef derivado fill:#fff,stroke:#6b7280,stroke-dasharray:4 3,color:#1f2937
+    classDef multi fill:#fff,stroke:#6b7280,color:#1f2937</pre></div></section>
+</main>
+<footer>Focus · TCC 2026</footer>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js"></script>
+<script>
+mermaid.initialize({startOnLoad:false,securityLevel:"loose",theme:"base",htmlLabels:false,
+  themeVariables:{lineColor:"#4c1d95",edgeLabelBackground:"#ffffff",fontFamily:"Segoe UI, Roboto, sans-serif",fontSize:"14px"},
+  flowchart:{htmlLabels:false,curve:"linear",nodeSpacing:28,rankSpacing:46}});
+const NS="http://www.w3.org/2000/svg";
+// Contorno duplo (entidade fraca, relacionamento identificador, multivalorado)
+function contornoDuplo(node, inset){
+  const shape=node.querySelector("rect, polygon, path"); if(!shape) return;
+  const b=shape.getBBox(); if(!b.width) return;
+  const c=shape.cloneNode(true);
+  const sx=(b.width-2*inset)/b.width, sy=(b.height-2*inset)/b.height;
+  const cx=b.x+b.width/2, cy=b.y+b.height/2;
+  c.setAttribute("transform","translate("+cx+","+cy+") scale("+sx+","+sy+") translate("+(-cx)+","+(-cy)+")");
+  c.setAttribute("style",(shape.getAttribute("style")||"")+";fill:none");
+  c.setAttribute("vector-effect","non-scaling-stroke");
+  shape.after(c);
+}
+// Sublinhado (chave) ou sublinhado tracejado (chave parcial)
+function sublinha(node, tracejado){
+  const t=node.querySelector("text"); if(!t) return;
+  const b=t.getBBox(); const l=document.createElementNS(NS,"line");
+  l.setAttribute("x1",b.x); l.setAttribute("x2",b.x+b.width);
+  l.setAttribute("y1",b.y+b.height-1); l.setAttribute("y2",b.y+b.height-1);
+  l.setAttribute("stroke","#1f2937"); l.setAttribute("stroke-width","1.2");
+  if(tracejado) l.setAttribute("stroke-dasharray","4 2");
+  t.after(l);
+}
+mermaid.run({querySelector:".mermaid"}).then(()=>{
+  document.querySelectorAll(".mermaid svg").forEach(svg=>{
+    svg.querySelectorAll("[marker-end],[marker-start]").forEach(p=>{p.removeAttribute("marker-end");p.removeAttribute("marker-start");});
+    svg.querySelectorAll("g.node.fraca").forEach(n=>contornoDuplo(n,4));
+    svg.querySelectorAll("g.node.ident").forEach(n=>contornoDuplo(n,6));
+    svg.querySelectorAll("g.node.multi").forEach(n=>contornoDuplo(n,3.5));
+    svg.querySelectorAll("g.node.chave").forEach(n=>sublinha(n,false));
+    svg.querySelectorAll("g.node.parcial").forEach(n=>sublinha(n,true));
+  });
+  document.body.dataset.pronto="1";
+});
+const nomes=["0_Visão_geral","1_Usuário_e_gamificação","2_Rotina_desafios_hábitos_e_lembretes","3_Estudos_e_leitura","4_Finanças_funções_do_Squill_","5_Grupos_e_social","6_Planejamento","7_Bem_estar"];
+function baixar(i,tipo){
+  const svg=document.querySelector("#d"+i+" svg"); if(!svg) return;
+  const xml=new XMLSerializer().serializeToString(svg);
+  const nome="MER_"+nomes[i];
+  if(tipo==="svg"){const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([xml],{type:"image/svg+xml"}));a.download=nome+".svg";a.click();return;}
+  const box=svg.getBoundingClientRect(); const escala=3;
+  const img=new Image(); img.onload=()=>{const c=document.createElement("canvas");c.width=box.width*escala;c.height=box.height*escala;const g=c.getContext("2d");g.fillStyle="#fff";g.fillRect(0,0,c.width,c.height);g.drawImage(img,0,0,c.width,c.height);c.toBlob(b=>{const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=nome+".png";a.click();});};
+  img.src="data:image/svg+xml;charset=utf-8,"+encodeURIComponent(xml);
+}
+</script></body></html>

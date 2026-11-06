@@ -1,12 +1,12 @@
-// Perfil PÚBLICO (o que os amigos veem) — PROTÓTIPO LOCAL.
-//
-// Hoje lê o que a conta do amigo salvou NESTE aparelho (mesmo registro
-// usado pelos grupos). Com o Firebase, trocar por uma leitura de
-// users/{uid}/publico, um doc que o próprio dono atualiza com só os campos
-// que ele deixou públicos (nada de e-mail, finanças ou anotações privadas).
+// Perfil PÚBLICO (o que os amigos veem) — Firestore.
+//   users/{uid}                -> perfil (nome, @, bio, status... sem dados privados)
+//   users/{uid}/public/summary -> resumo que o PRÓPRIO dono publica (XP, nível, sequência,
+//                                 conquistas, livros e resenhas públicas)
+// Nada de finanças, diário ou anotações privadas: esses ficam em users/{uid}/data (só o dono lê).
 
-import { computeStats, levelInfo } from "@/constants/gamification";
-import { loadJSON, storageKeys } from "@/utils/localStore";
+import { doc, getDoc, setDoc } from "firebase/firestore";
+
+import { db } from "@/config/firebase";
 import { EMPTY_PROFILE, Profile, profileService } from "@/services/profileService";
 
 export type PublicBook = { id: string; title: string; author: string; status: "lendo" | "concluido"; coverUrl: string | null };
@@ -22,37 +22,42 @@ export type PublicProfile = {
   reviews: PublicReview[];
 };
 
-const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object";
+export type PublicSummary = Omit<PublicProfile, "profile">;
+
+const summaryRef = (uid: string) => doc(db, "users", uid, "public", "summary");
 
 export async function loadPublicProfile(uid: string): Promise<PublicProfile> {
   const profile = (await profileService.load(uid)) ?? EMPTY_PROFILE;
   const { email: _email, ...visible } = profile;
 
-  const progress = (await loadJSON(storageKeys.progress(uid), isObj)) as
-    | { completions?: { id: string; xp: number; at: number; title?: string }[]; unlockedAt?: Record<string, number> }
-    | null;
-  const completions = (progress?.completions ?? []) as Parameters<typeof computeStats>[0];
-  const stats = computeStats(completions);
-
-  const shelf = (await loadJSON(`focus:v1:${uid}:estante`, isObj)) as { books?: PublicBook[] & { status: string }[] } | null;
-  const books = (shelf?.books ?? [])
-    .filter((b) => b.status === "lendo" || b.status === "concluido")
-    .map((b) => ({ id: b.id, title: b.title, author: b.author, status: b.status as PublicBook["status"], coverUrl: b.coverUrl ?? null }));
-
-  const planner = (await loadJSON(`focus:v1:${uid}:planejador`, isObj)) as
-    | { reviews?: { bookId: string; text: string; rating: number; isPublic: boolean; at: number }[] }
-    | null;
-  const reviews = (planner?.reviews ?? [])
-    .filter((r) => r.isPublic)
-    .map((r) => ({ bookTitle: books.find((b) => b.id === r.bookId)?.title ?? "Livro", text: r.text, rating: r.rating, at: r.at }));
+  let summary: Partial<PublicSummary> = {};
+  try {
+    const snap = await getDoc(summaryRef(uid));
+    if (snap.exists()) summary = snap.data() as Partial<PublicSummary>;
+  } catch {
+    // sem conexão: mostra só o perfil
+  }
 
   return {
     profile: visible,
-    level: levelInfo(stats.xp).level,
-    xp: stats.xp,
-    streakDays: stats.streakDays,
-    unlocked: Object.keys(progress?.unlockedAt ?? {}),
-    books: profile.showBooks ? books : [],
-    reviews: profile.showBooks ? reviews : [],
+    level: summary.level ?? 1,
+    xp: summary.xp ?? 0,
+    streakDays: summary.streakDays ?? 0,
+    unlocked: summary.unlocked ?? [],
+    books: profile.showBooks ? summary.books ?? [] : [],
+    reviews: profile.showBooks ? summary.reviews ?? [] : [],
   };
+}
+
+// Chamado pelo próprio usuário (PublicProfilePublisher em SessionProviders)
+let lastSignature = "";
+export async function publishPublicSummary(uid: string, summary: PublicSummary) {
+  const signature = `${uid}|${JSON.stringify(summary)}`;
+  if (signature === lastSignature) return;
+  try {
+    await setDoc(summaryRef(uid), { ...summary, updatedAt: Date.now() });
+    lastSignature = signature;
+  } catch {
+    // tenta de novo na próxima alteração
+  }
 }

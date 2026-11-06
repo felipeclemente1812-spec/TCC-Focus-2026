@@ -36,6 +36,7 @@ import { usePublishPost } from "@/hooks/usePublishPost";
 import { PostContext } from "../../context/PostContext";
 import { displayName, UserContext } from "../../context/UserContext";
 import { XPContext } from "../../context/XPContext";
+import { flushPending } from "@/utils/localStore";
 
 const USERNAME_REGEX = /^[a-z0-9_.]{3,20}$/;
 
@@ -195,6 +196,7 @@ export default function Profile() {
       setLoggingOut(true);
       // A troca de sessão recria XP, rotina e foco (SessionProviders)
       // e limpa o perfil (UserContext); aqui só encerramos a sessão.
+      await flushPending(); // envia o que ainda não foi para a nuvem
       await signOut(auth);
       router.replace("/login");
     } catch {

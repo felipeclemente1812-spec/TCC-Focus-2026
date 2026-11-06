@@ -28,8 +28,8 @@ export default function Groups() {
 
   const { groups, createGroup, joinByCode } = groupsContext;
 
-  const handleJoin = () => {
-    const result = joinByCode(code);
+  const handleJoin = async () => {
+    const result = await joinByCode(code);
     if (result.error) {
       setJoinError(result.error);
       // Já era membro: leva direto ao grupo

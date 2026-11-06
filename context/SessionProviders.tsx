@@ -1,7 +1,7 @@
 import React, { ReactNode, useContext, useEffect } from "react";
 import { ActivityIndicator, View } from "react-native";
 
-import { ACHIEVEMENTS, computeStats } from "@/constants/gamification";
+import { ACHIEVEMENTS, computeStats, levelInfo } from "@/constants/gamification";
 import { BooksContext, BooksProvider } from "@/context/BooksContext";
 import { DiaryContext, DiaryProvider } from "@/context/DiaryContext";
 import { FinanceContext, FinanceProvider } from "@/context/FinanceContext";
@@ -14,11 +14,12 @@ import { TaskExtrasContext, TaskExtrasProvider } from "@/context/TaskExtrasConte
 import { UserContext } from "@/context/UserContext";
 import { AgendaWatcher } from "@/hooks/useAgenda";
 import { XPContext, XPProvider } from "@/context/XPContext";
+import { publishPublicSummary, PublicBook, PublicReview } from "@/services/publicProfileService";
 
 // Estado que pertence a UMA conta: XP, rotina, hábitos, estante, foco e grupos.
 // A `key` com o uid recria tudo quando a conta muda (logout, troca de
 // usuário), então nada da sessão anterior é herdado pela próxima.
-// Os dados são carregados do armazenamento local DESTE uid.
+// Os dados são carregados do Firestore (users/{uid}/data/...) DESTE uid.
 export function SessionProviders({ children }: { children: ReactNode }) {
   const userContext = useContext(UserContext);
   const uid = userContext?.user.uid ?? "";
@@ -39,6 +40,7 @@ export function SessionProviders({ children }: { children: ReactNode }) {
                     <GroupsProvider uid={uid}>
                       <FocusProvider>
                         <AchievementsWatcher />
+                        <PublicProfilePublisher uid={uid} />
                         <AgendaWatcher />
                         <WaitForSavedData>{children}</WaitForSavedData>
                       </FocusProvider>
@@ -72,6 +74,49 @@ function AchievementsWatcher() {
     );
     if (newly.length > 0) xp.unlockAchievements(newly);
   }, [ready, history, unlockedAt, habitStreak, xp]);
+
+  return null;
+}
+
+// Publica o resumo que os amigos veem (users/{uid}/public/summary).
+// Só o próprio dono escreve; livros e resenhas respeitam "mostrar livros".
+function PublicProfilePublisher({ uid }: { uid: string }) {
+  const xp = useContext(XPContext);
+  const booksCtx = useContext(BooksContext);
+  const planner = useContext(PlannerContext);
+  const showBooks = useContext(UserContext)?.user.showBooks ?? true;
+
+  const ready = !!uid && !!xp?.ready && !!booksCtx?.ready && !!planner?.ready;
+  const history = xp?.history;
+  const unlockedAt = xp?.unlockedAt;
+  const books = booksCtx?.books;
+  const reviews = planner?.reviews;
+
+  useEffect(() => {
+    if (!ready || !history || !unlockedAt || !books || !reviews) return;
+    const timer = setTimeout(() => {
+      const stats = computeStats(history);
+      const shownBooks: PublicBook[] = showBooks
+        ? books
+            .filter((b) => b.status === "lendo" || b.status === "concluido")
+            .map((b) => ({ id: b.id, title: b.title, author: b.author, status: b.status as PublicBook["status"], coverUrl: b.coverUrl ?? null }))
+        : [];
+      const shownReviews: PublicReview[] = showBooks
+        ? reviews
+            .filter((r) => r.isPublic)
+            .map((r) => ({ bookTitle: books.find((b) => b.id === r.bookId)?.title ?? "Livro", text: r.text, rating: r.rating, at: r.at }))
+        : [];
+      publishPublicSummary(uid, {
+        level: levelInfo(stats.xp).level,
+        xp: stats.xp,
+        streakDays: stats.streakDays,
+        unlocked: Object.keys(unlockedAt),
+        books: shownBooks,
+        reviews: shownReviews,
+      });
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [ready, uid, history, unlockedAt, books, reviews, showBooks]);
 
   return null;
 }

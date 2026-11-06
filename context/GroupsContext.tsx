@@ -3,6 +3,7 @@ import React, {
   ReactNode,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from "react";
 
@@ -21,7 +22,7 @@ import {
   savingsRanking,
   settingsOf,
   TaskRule,
-  localGroupsService,
+  firestoreGroupsService,
   MAX_GROUP_TASKS,
   MAX_GROUPS,
   memberDone,
@@ -35,11 +36,9 @@ import {
 } from "@/services/groupsService";
 
 // Grupos de amigos: tarefas do grupo, ranking entre membros e mural.
-// PROTÓTIPO: usa localGroupsService (registro deste aparelho, compartilhado
-// entre as contas que entram nele). Trocar o serviço pela versão com backend
-// mantém esta interface (docs/CONTRATO_GRUPOS.md).
+// Dados no Firestore (groups/{id}), em tempo real entre aparelhos (docs/CONTRATO_GRUPOS.md).
 
-const service = localGroupsService;
+const service = firestoreGroupsService;
 
 type Result = { error: string | null };
 
@@ -48,7 +47,7 @@ type GroupsContextType = {
   groups: Group[]; // só os grupos dos quais o usuário participa
   getGroup: (id: string) => Group | undefined;
   createGroup: (name: string) => Result & { id?: string };
-  joinByCode: (code: string) => Result & { id?: string };
+  joinByCode: (code: string) => Promise<Result & { id?: string }>;
   leaveGroup: (id: string) => void; // membro sai
   deleteGroup: (id: string) => void; // criador exclui
   removeDemoMembers: (id: string) => void;
@@ -81,22 +80,25 @@ export function GroupsProvider({ uid, children }: { uid: string; children: React
   const [allGroups, setAllGroups] = useState<Group[]>([]);
   const [ready, setReady] = useState(!uid);
 
+  const allRef = useRef<Group[]>([]);
+  allRef.current = allGroups;
+
+  // Tempo real: qualquer mudança feita por outro membro chega aqui
   useEffect(() => {
     if (!uid) return;
-    let active = true;
-    service.load(uid).then((saved) => {
-      if (!active) return;
-      setAllGroups(saved);
-      setReady(true);
-    });
-    return () => {
-      active = false;
-    };
+    return service.subscribe(
+      uid,
+      (saved) => {
+        setAllGroups(saved);
+        setReady(true);
+      },
+      () => setReady(true), // sem conexão/permissão: abre vazio e não grava nada
+    );
   }, [uid]);
 
   useEffect(() => {
     if (!uid || !ready) return;
-    service.save(allGroups);
+    service.save(uid, allGroups);
   }, [uid, ready, allGroups]);
 
   const user = userContext?.user;
@@ -123,38 +125,32 @@ export function GroupsProvider({ uid, children }: { uid: string; children: React
     return { error: null, id: group.id };
   };
 
-  const joinByCode = (code: string) => {
+  const joinByCode = async (code: string): Promise<Result & { id?: string }> => {
     const clean = normalizeCode(code);
     if (!/^FOCUS-[A-Z0-9]{4}$/.test(clean)) {
       return { error: "Digite um código no formato FOCUS-XXXX." };
     }
-    const group = allGroups.find((g) => g.code === clean);
-    if (!group) {
-      return {
-        error:
-          "Código não encontrado neste aparelho. Entrar em grupos criados em outros aparelhos depende do servidor.",
-      };
-    }
-    if (isMember(group, uid)) {
-      return { error: "Você já participa desse grupo.", id: group.id };
-    }
+    const mine = allGroups.find((g) => g.code === clean);
+    if (mine) return { error: "Você já participa desse grupo.", id: mine.id };
     if (groups.length >= MAX_GROUPS) {
       return { error: `Você pode participar de até ${MAX_GROUPS} grupos.` };
     }
 
-    // Entra no grupo e, se havia convite para o seu @usuário ou e-mail, ele é aceito
+    // Se havia convite para o seu @usuário ou e-mail, ele é aceito ao entrar
     const myHandles = [
       user?.username ? user.username.toLowerCase() : "",
       user?.username ? `@${user.username.toLowerCase()}` : "",
       user?.email?.toLowerCase() ?? "",
     ].filter(Boolean);
 
-    update(group.id, (g) => ({
-      ...g,
-      members: [...g.members, { id: uid, name: me.name, isDemo: false }],
-      invites: g.invites.filter((i) => !myHandles.includes(i.handle)),
-    }));
-    return { error: null, id: group.id };
+    const result = await service.join(clean, me, myHandles);
+    if (result.error || !result.id) return result;
+
+    // Espera o grupo chegar pelo tempo real (até 4 s) antes de abrir a tela
+    for (let i = 0; i < 20 && !allRef.current.some((g) => g.id === result.id); i++) {
+      await new Promise((r) => setTimeout(r, 200));
+    }
+    return result;
   };
 
   const leaveGroup = (id: string) => {

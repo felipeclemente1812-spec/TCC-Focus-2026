@@ -1,4 +1,9 @@
-// Serviço de GRUPOS — PROTÓTIPO LOCAL.
+// Serviço de GRUPOS — Firestore (tempo real entre aparelhos).
+//   groups/{groupId}      -> o grupo inteiro (mesmo formato do tipo Group) + memberIds
+//   groupCodes/{FOCUS-XX} -> { groupId, ownerId }  (entrar pelo código)
+// Gravação por campo: só o que mudou é enviado (tasks, completions, posts... separados).
+//
+// (comentário antigo do protótipo local abaixo)
 //
 // As telas só falam com a interface `GroupsService`. Hoje a implementação
 // guarda os grupos num registro DESTE aparelho (AsyncStorage), compartilhado
@@ -8,7 +13,21 @@
 
 import { Frequency } from "@/constants/challenges";
 import { periodIdFor, XP_BY_FREQUENCY } from "@/constants/gamification";
-import { loadJSON, removeJSON, saveJSON } from "@/utils/localStore";
+import {
+  collection,
+  deleteDoc,
+  deleteField,
+  doc,
+  getDoc,
+  onSnapshot,
+  query,
+  runTransaction,
+  setDoc,
+  updateDoc,
+  where,
+} from "firebase/firestore";
+
+import { db } from "@/config/firebase";
 
 export type GroupMember = {
   id: string; // uid (ou id de exemplo)
@@ -105,48 +124,129 @@ export type Group = {
 export const MAX_GROUPS = 5;
 export const MAX_GROUP_TASKS = 10;
 
+export type JoinResult = { error: string | null; id?: string };
+
 export type GroupsService = {
-  // Todos os grupos conhecidos (o contexto filtra os do usuário)
-  load: (uid: string) => Promise<Group[]>;
-  save: (groups: Group[]) => Promise<void>;
+  // Escuta em tempo real os grupos em que o usuário é membro
+  subscribe: (uid: string, onData: (groups: Group[]) => void, onError: () => void) => () => void;
+  // Envia só as diferenças (novos, alterados e excluídos)
+  save: (uid: string, groups: Group[]) => Promise<void>;
+  // Entra num grupo pelo código (de qualquer aparelho)
+  join: (code: string, member: { id: string; name: string }, handles: string[]) => Promise<JoinResult>;
 };
 
-// ---------- implementação local (protótipo) ----------
+// ---------- implementação Firestore ----------
 
-const REGISTRY_KEY = "focus:v1:grupos";
-// Versão anterior guardava por usuário; é migrada para o registro
-const legacyKey = (uid: string) => `focus:v1:${uid}:grupos`;
+const clean = <T,>(v: T): T => JSON.parse(JSON.stringify(v)); // remove undefined
+const memberIdsOf = (g: Group) => g.members.filter((m) => !m.isDemo).map((m) => m.id);
 
-function isGroupList(value: unknown): value is Group[] {
-  return (
-    Array.isArray(value) &&
-    value.every(
-      (g) =>
-        g &&
-        typeof g.id === "string" &&
-        typeof g.name === "string" &&
-        Array.isArray(g.members) &&
-        Array.isArray(g.tasks) &&
-        Array.isArray(g.completions) &&
-        Array.isArray(g.posts) &&
-        Array.isArray(g.invites),
-    )
-  );
+// Última versão conhecida do servidor, por grupo (base para calcular as diferenças)
+const synced = new Map<string, Group>();
+let queue: Promise<void> = Promise.resolve();
+
+function fromDoc(id: string, data: Record<string, unknown>): Group {
+  const { memberIds, ...rest } = data;
+  const g = rest as unknown as Group;
+  return {
+    ...g,
+    id,
+    members: g.members ?? [],
+    invites: g.invites ?? [],
+    tasks: g.tasks ?? [],
+    completions: g.completions ?? [],
+    posts: g.posts ?? [],
+  };
 }
 
-export const localGroupsService: GroupsService = {
-  load: async (uid) => {
-    const registry = (await loadJSON(REGISTRY_KEY, isGroupList)) ?? [];
-    const legacy = uid ? await loadJSON(legacyKey(uid), isGroupList) : null;
-    if (!legacy || legacy.length === 0) return registry;
+async function saveNow(uid: string, groups: Group[]) {
+  const ids = new Set(groups.map((g) => g.id));
 
-    // Migra grupos antigos deste usuário para o registro (sem duplicar)
-    const merged = [...registry, ...legacy.filter((g) => !registry.some((r) => r.id === g.id))];
-    await saveJSON(REGISTRY_KEY, merged);
-    await removeJSON(legacyKey(uid));
-    return merged;
+  // Excluídos (só o criador consegue apagar)
+  for (const [id, old] of [...synced]) {
+    if (ids.has(id)) continue;
+    if (old.ownerId === uid) {
+      try {
+        await deleteDoc(doc(db, "groups", id));
+        await deleteDoc(doc(db, "groupCodes", old.code));
+      } catch {
+        continue; // tenta de novo na próxima alteração
+      }
+    }
+    synced.delete(id);
+  }
+
+  for (const g of groups) {
+    const next = clean(g);
+    const prev = synced.get(g.id);
+    const ref = doc(db, "groups", g.id);
+    try {
+      if (!prev) {
+        await setDoc(ref, { ...next, memberIds: memberIdsOf(g) });
+        await setDoc(doc(db, "groupCodes", g.code), { groupId: g.id, ownerId: g.ownerId });
+        synced.set(g.id, next);
+        continue;
+      }
+      const changes: Record<string, unknown> = {};
+      const keys = new Set([...Object.keys(next), ...Object.keys(prev)]);
+      keys.forEach((k) => {
+        const a = JSON.stringify((next as Record<string, unknown>)[k]);
+        const b = JSON.stringify((prev as Record<string, unknown>)[k]);
+        if (a !== b) changes[k] = k in next ? (next as Record<string, unknown>)[k] : deleteField();
+      });
+      if ("members" in changes) changes.memberIds = memberIdsOf(g);
+      if (Object.keys(changes).length === 0) continue;
+      await updateDoc(ref, changes);
+      synced.set(g.id, next);
+    } catch {
+      // Sem conexão ou sem permissão: tenta de novo na próxima alteração
+    }
+  }
+}
+
+export const firestoreGroupsService: GroupsService = {
+  subscribe: (uid, onData, onError) =>
+    onSnapshot(
+      query(collection(db, "groups"), where("memberIds", "array-contains", uid)),
+      (snap) => {
+        const groups = snap.docs.map((d) => fromDoc(d.id, d.data()));
+        synced.clear();
+        groups.forEach((g) => synced.set(g.id, clean(g)));
+        onData(groups);
+      },
+      onError,
+    ),
+
+  save: (uid, groups) => {
+    queue = queue.then(() => saveNow(uid, groups)).catch(() => {});
+    return queue;
   },
-  save: (groups) => saveJSON(REGISTRY_KEY, groups),
+
+  join: async (code, member, handles) => {
+    try {
+      const codeSnap = await getDoc(doc(db, "groupCodes", code));
+      if (!codeSnap.exists()) return { error: "Código não encontrado. Confira com quem criou o grupo." };
+      const groupId = codeSnap.data().groupId as string;
+      const ref = doc(db, "groups", groupId);
+      let already = false;
+      await runTransaction(db, async (tx) => {
+        const snap = await tx.get(ref);
+        if (!snap.exists()) throw new Error("not-found");
+        const g = snap.data() as Group & { memberIds: string[] };
+        if (g.memberIds.includes(member.id)) {
+          already = true;
+          return;
+        }
+        tx.update(ref, {
+          members: [...g.members, { id: member.id, name: member.name, isDemo: false }],
+          memberIds: [...g.memberIds, member.id],
+          invites: (g.invites ?? []).filter((i) => !handles.includes(i.handle)),
+        });
+      });
+      return { error: already ? "Você já participa desse grupo." : null, id: groupId };
+    } catch {
+      return { error: "Não foi possível entrar agora. Verifique sua conexão e o código." };
+    }
+  },
 };
 
 export const normalizeCode = (code: string) => code.trim().toUpperCase();

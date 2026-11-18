@@ -9,6 +9,7 @@ import { DAY_SHORT } from "@/context/HabitsContext";
 import { AgendaKind, PlannerContext } from "@/context/PlannerContext";
 import { KIND_INFO, useAgenda } from "@/hooks/useAgenda";
 import { confirmAction } from "@/utils/feedback";
+import { UsageMeter } from "@/components/PremiumGate";
 
 const MONTHS = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
 const KINDS: AgendaKind[] = ["compromisso", "prova", "prazo"];
@@ -63,6 +64,8 @@ export default function Agenda() {
 
   return (
     <ScreenShell title="Agenda">
+      <UsageMeter limit="agendaMes" label="Compromissos criados este mês" />
+
       {/* CALENDÁRIO DO MÊS */}
       <View style={ui.card}>
         <View style={ui.rowBetween}>

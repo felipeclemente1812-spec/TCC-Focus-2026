@@ -7,6 +7,7 @@ import { RoutineContext } from "@/context/RoutineContext";
 import { TaskExtrasContext, topWords } from "@/context/TaskExtrasContext";
 import { XPContext } from "@/context/XPContext";
 import { loadJSON, saveJSON } from "@/utils/localStore";
+import { FREE_LIMITS, limitReached, PremiumContext } from "@/context/PremiumContext";
 
 // Tarefas semanais e mensais com VERIFICAÇÃO (relatório do grupo):
 // simulados, videoaulas, mapa mental, plano da semana, refeições, treinos,
@@ -38,11 +39,14 @@ export type Hobby = { id: string; name: string };
 export type HobbyLog = { id: string; hobbyId: string; minutes: number; note: string; day: string; at: number };
 export type GoalCard = { id: string; title: string; why: string; month: string | null; createdAt: number };
 export type GoalReview = { cardId: string; period: string; status: "ok" | "ajustar" };
-export type ProjectKind = "curso" | "projeto" | "criacao" | "aprender";
+// "Criação" e "Aprender algo novo" saíram (pedido do grupo): criação virou um
+// tipo de projeto (creation) e "aprender" virou curso
+export type ProjectKind = "curso" | "projeto";
 export type ProjectNote = { id: string; text: string; day: string; at: number };
 export type Project = {
   id: string;
   kind: ProjectKind;
+  creation?: boolean; // projeto que é uma criação (desenho, música, texto...)
   title: string;
   description: string;
   start: string; // AAAA-MM-DD
@@ -135,6 +139,14 @@ const EMPTY: Saved = {
 
 const key = (uid: string) => `focus:v1:${uid}:planejador`;
 const isSaved = (v: unknown): v is Partial<Saved> => !!v && typeof v === "object" && !Array.isArray(v);
+
+// Projetos salvos antes da mudança: "criacao" vira projeto-criação e "aprender" vira curso
+const migrateProject = (p: Project): Project => {
+  const old = p.kind as string;
+  if (old === "criacao") return { ...p, kind: "projeto", creation: true };
+  if (old === "aprender") return { ...p, kind: "curso" };
+  return p;
+};
 const newId = (p: string) => `${p}${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 
 // ---------- Regras de verificação (puras) ----------
@@ -186,15 +198,11 @@ export const PLAN_SLOTS = ["Manhã", "Tarde", "Noite"];
 export const KIND_LABEL: Record<ProjectKind, string> = {
   curso: "Curso",
   projeto: "Projeto",
-  criacao: "Criação",
-  aprender: "Aprender algo novo",
 };
 // Desafio que cada tipo de projeto cumpre
 export const PROJECT_TASK: Record<ProjectKind, string> = {
   curso: "mes-est-curso",
   projeto: "mes-pro-projeto",
-  criacao: "mes-cri-obra",
-  aprender: "mes-cri-curso",
 };
 // Concluir um projeto pelo app exige progresso real em dias diferentes
 export const PROJECT_MIN_DAYS = 3;
@@ -311,6 +319,8 @@ type PlannerContextType = Saved & {
 export const PlannerContext = createContext<PlannerContextType | null>(null);
 
 export function PlannerProvider({ uid, children }: { uid: string; children: ReactNode }) {
+  // Plano grátis: limites de uso (Focus Premium tira os limites)
+  const isPremium = useContext(PremiumContext)?.isPremium ?? false;
   const routine = useContext(RoutineContext);
   const xp = useContext(XPContext);
   const extras = useContext(TaskExtrasContext);
@@ -330,7 +340,7 @@ export function PlannerProvider({ uid, children }: { uid: string; children: Reac
     loadJSON(key(uid), isSaved).then((saved) => {
       if (!active) return;
       if (saved) {
-        ref.current = { ...EMPTY, ...saved };
+        ref.current = { ...EMPTY, ...saved, projects: (saved.projects ?? []).map(migrateProject) };
         setData(ref.current);
       }
       setReady(true);
@@ -587,6 +597,9 @@ export function PlannerProvider({ uid, children }: { uid: string; children: Reac
   // ---------- Projetos ----------
 
   const saveProject: PlannerContextType["saveProject"] = (input) => {
+    if (!isPremium && !input.id && ref.current.projects.filter((p) => !p.doneAt).length >= FREE_LIMITS.projetos) {
+      return limitReached(`No plano grátis, dá para ter ${FREE_LIMITS.projetos} cursos ou projetos em andamento.`);
+    }
     const title = input.title.trim();
     if (title.length < 3) return "Dê um nome ao projeto.";
     if (input.deadline && input.deadline < input.start) return "O prazo precisa ser depois do início.";
@@ -611,7 +624,7 @@ export function PlannerProvider({ uid, children }: { uid: string; children: Reac
     // Semanais: avançar um projeto / aprender algo novo
     const project = ref.current.projects.find((p) => p.id === id);
     complete("cri-projeto");
-    if (project?.kind === "aprender") complete("cri-novo");
+    if (project?.kind === "curso") complete("cri-novo");
     return null;
   };
   const removeProjectNote = (id: string, noteId: string) =>
@@ -628,6 +641,8 @@ export function PlannerProvider({ uid, children }: { uid: string; children: Reac
     }
     update((d) => ({ ...d, projects: d.projects.map((p) => (p.id === id ? { ...p, doneAt: Date.now() } : p)) }));
     complete(PROJECT_TASK[project.kind]);
+    if (project.creation) complete("mes-cri-obra");
+    if (project.kind === "curso") complete("mes-cri-curso");
     return null;
   };
 
@@ -726,9 +741,8 @@ export function PlannerProvider({ uid, children }: { uid: string; children: Reac
 
   const addProof = (taskId: string, text: string, file: FileRef | null) => {
     const clean = text.trim();
-    if (clean.length < PROOF_MIN_CHARS && !file) {
-      return `Conte como foi (${PROOF_MIN_CHARS}+ letras) ou anexe uma foto.`;
-    }
+    // Semanal/mensal com comprovante: só conclui com foto ou documento (o texto é opcional)
+    if (!file) return "Anexe uma foto ou um documento para concluir.";
     update((d) => ({
       ...d,
       proofs: [{ id: newId("pf"), taskId, period: periodFor(taskId), text: clean.slice(0, 500), file, at: Date.now() }, ...d.proofs],
@@ -741,6 +755,10 @@ export function PlannerProvider({ uid, children }: { uid: string; children: Reac
   // ---------- Agenda pessoal ----------
 
   const saveEvent: PlannerContextType["saveEvent"] = (input) => {
+    const eventsThisMonth = ref.current.events.filter((e) => monthKey(new Date(e.createdAt)) === monthKey()).length;
+    if (!isPremium && !input.id && eventsThisMonth >= FREE_LIMITS.agendaMes) {
+      return limitReached(`No plano grátis, dá para criar ${FREE_LIMITS.agendaMes} compromissos por mês.`);
+    }
     const title = input.title.trim();
     if (title.length < 2) return "Dê um nome ao compromisso.";
     if (!/^\d{4}-\d{2}-\d{2}$/.test(input.day)) return "Data inválida.";

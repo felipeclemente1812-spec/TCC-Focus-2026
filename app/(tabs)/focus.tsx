@@ -23,8 +23,11 @@ import {
 } from "@/context/FocusContext";
 import { confirmAction } from "@/utils/feedback";
 import { openDoNotDisturb } from "@/utils/focusMode";
+import { openPremium, useLimitReached, UsageMeter } from "@/components/PremiumGate";
 
 export default function Focus() {
+  // Plano grátis: 10 ciclos de foco profundo (50 / 10) por mês
+  const deepLimit = useLimitReached("focoProfundoMes");
   const focus = useContext(FocusContext);
   const [dndMsg, setDndMsg] = useState("");
   if (!focus) throw new Error("FocusContext não encontrado");
@@ -112,6 +115,9 @@ export default function Focus() {
             <View style={{ width: 25 }} />
           </View>
 
+          {/* Cota do foco profundo no plano grátis */}
+          <UsageMeter limit="focoProfundoMes" label="Ciclos 50 / 10 este mês" compact />
+
           {/* PRESETS */}
           <View style={styles.presets}>
             {FOCUS_PRESETS.map((p) => (
@@ -122,13 +128,16 @@ export default function Focus() {
                   presetId === p.id && styles.presetActive,
                   status === "running" && presetId !== p.id && styles.disabled,
                 ]}
-                onPress={() => setPreset(p.id)}
+                onPress={() => (p.id === "profundo" && deepLimit ? openPremium() : setPreset(p.id))}
                 disabled={status === "running"}
                 accessibilityRole="radio"
                 aria-checked={presetId === p.id}
                 accessibilityLabel={`${p.focus} minutos de foco e ${p.short} de pausa`}
               >
-                <Text style={styles.presetText}>{p.label} min</Text>
+                <Text style={styles.presetText}>
+                  {p.id === "profundo" && deepLimit ? "🔒 " : ""}
+                  {p.label} min
+                </Text>
                 <Text style={styles.presetXp}>+{focusXp(p.focus)} XP</Text>
               </TouchableOpacity>
             ))}
@@ -187,7 +196,14 @@ export default function Focus() {
             {/* CONTROLES */}
             <TouchableOpacity
               style={styles.primaryButton}
-              onPress={status === "running" ? pause : start}
+              onPress={
+                status === "running"
+                  ? pause
+                  : // Cota do foco profundo acabou: não começa outro ciclo 50 / 10
+                    presetId === "profundo" && phase === "focus" && status === "idle" && deepLimit
+                    ? openPremium
+                    : start
+              }
               accessibilityRole="button"
             >
               <Text style={styles.primaryText}>{primaryLabel}</Text>

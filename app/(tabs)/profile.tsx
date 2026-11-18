@@ -17,6 +17,7 @@ import {
 import { BadgeShowcase, ProfileBanner, PublicShelf } from "@/components/ProfileShowcase";
 import { auth } from "@/config/firebase";
 import { confirmAction, notify } from "@/utils/feedback";
+import { FocusLogo } from "@/components/FocusLogo";
 import PostComposer from "@/components/PostComposer";
 import {
   ACHIEVEMENTS,
@@ -37,11 +38,13 @@ import { PostContext } from "../../context/PostContext";
 import { displayName, UserContext } from "../../context/UserContext";
 import { XPContext } from "../../context/XPContext";
 import { flushPending } from "@/utils/localStore";
+import { PLANS, PremiumContext } from "@/context/PremiumContext";
 
 const USERNAME_REGEX = /^[a-z0-9_.]{3,20}$/;
 
 export default function Profile() {
   const userContext = useContext(UserContext);
+  const premium = useContext(PremiumContext);
   const xpContext = useContext(XPContext);
   const context = useContext(PostContext);
   const habitsContext = useContext(HabitsContext);
@@ -559,6 +562,43 @@ export default function Profile() {
         }
         ListFooterComponent={
           user.uid ? (
+            <>
+            {/* FOCUS PREMIUM */}
+            <TouchableOpacity
+              style={[styles.premiumCard, premium?.isPremium && styles.premiumCardOn]}
+              onPress={() => router.push("/premium")}
+              accessibilityRole="button"
+            >
+              <Ionicons name="diamond" size={20} color="#FBBF24" />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.premiumTitle}>
+                  {premium?.isPremium ? "Focus Premium ativo" : "Conheça o Focus Premium"}
+                </Text>
+                <Text style={styles.premiumText}>
+                  {premium?.subscription
+                    ? `Plano ${PLANS[premium.subscription.plan].label.toLowerCase()} · renova em ${new Date(premium.subscription.renewsAt).toLocaleDateString("pt-BR")}`
+                    : "Libere todas as ferramentas da sua rotina."}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color="#C7BADB" />
+            </TouchableOpacity>
+            {premium?.isPremium ? (
+              <TouchableOpacity
+                onPress={async () => {
+                  if (await confirmAction("Voltar ao plano grátis?", "Só para a apresentação: desliga o Premium nesta conta. Seus dados continuam salvos.", "Voltar ao grátis")) premium.cancelDemo();
+                }}
+                style={styles.demoLink}
+                accessibilityRole="button"
+              >
+                <Text style={styles.demoLinkText}>Voltar ao plano grátis (demonstração)</Text>
+              </TouchableOpacity>
+            ) : null}
+
+            <TouchableOpacity style={styles.termsButton} onPress={() => router.push("/terms")} accessibilityRole="button">
+              <Ionicons name="document-text-outline" size={16} color="#DDD6FE" />
+              <Text style={styles.termsText}>Termos de Uso</Text>
+            </TouchableOpacity>
+
             <TouchableOpacity
               style={styles.logout}
               onPress={handleLogout}
@@ -574,6 +614,12 @@ export default function Profile() {
                 </>
               )}
             </TouchableOpacity>
+            {/* Assinatura do app no fim do perfil */}
+            <View style={styles.brandFooter}>
+              <FocusLogo size={110} />
+              <Text style={styles.brandFooterText}>Evoluindo um pouco a cada dia</Text>
+            </View>
+            </>
           ) : null
         }
       />
@@ -583,6 +629,8 @@ export default function Profile() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0f172a" },
+  brandFooter: { alignItems: "center", gap: 6, marginTop: 24, marginBottom: 110, opacity: 0.9 },
+  brandFooterText: { color: "#C7BADB", fontSize: 12 },
 
   header: {
     paddingTop: 0,
@@ -682,6 +730,42 @@ const styles = StyleSheet.create({
     paddingHorizontal: 30,
     marginBottom: 6,
   },
+
+  premiumCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: "#25193A",
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: "#FBBF24",
+    padding: 14,
+    marginHorizontal: 16,
+    marginTop: 20,
+  },
+
+  premiumCardOn: { borderColor: "#36D35B" },
+  premiumTitle: { color: "#FBBF24", fontSize: 15, fontWeight: "700" },
+  premiumText: { color: "#DDD6FE", fontSize: 12, marginTop: 2 },
+  demoLink: { alignSelf: "center", paddingVertical: 10 },
+  demoLinkText: { color: "#9E94AB", fontSize: 12, textDecorationLine: "underline" },
+
+  termsButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    alignSelf: "center",
+    marginTop: 18,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    minHeight: 44,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "rgba(221,214,254,0.4)",
+  },
+
+  termsText: { color: "#DDD6FE", fontSize: 14, fontWeight: "600" },
 
   logout: {
     flexDirection: "row",

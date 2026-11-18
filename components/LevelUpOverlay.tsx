@@ -1,7 +1,7 @@
-import { Ionicons } from "@expo/vector-icons";
 import React, { useContext, useEffect, useRef, useState } from "react";
 import { Animated, StyleSheet, Text, TouchableOpacity } from "react-native";
 
+import { FocusLogo } from "@/components/FocusLogo";
 import { levelTitle, XP_PER_LEVEL } from "@/constants/gamification";
 import { XPContext } from "@/context/XPContext";
 
@@ -51,7 +51,7 @@ export default function LevelUpOverlay() {
           },
         ]}
       >
-        <Ionicons name="rocket" style={styles.emoji} color="#FCD34D" />
+        <FocusLogo variant="symbol" size={72} style={{ marginBottom: 6 }} />
         <Text style={styles.title}>LEVEL UP</Text>
         <Text style={styles.text}>
           Nível {shownLevel} — {levelTitle(shownLevel).title}
@@ -88,7 +88,6 @@ const styles = StyleSheet.create({
     borderColor: "#A78BFA",
   },
 
-  emoji: { fontSize: 44, marginBottom: 4 },
 
   title: { color: "#FFFFFF", fontSize: 32, fontWeight: "900" },
 

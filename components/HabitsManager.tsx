@@ -23,6 +23,7 @@ import {
   WEEK_ORDER,
 } from "@/context/HabitsContext";
 import { confirmAction } from "@/utils/feedback";
+import { maskTime } from "@/components/ScreenShell";
 
 // Criar, editar e excluir hábitos (dias e horário opcionais).
 // Marcar como feito fica em Desafios › "Hábitos de hoje".
@@ -193,12 +194,13 @@ export default function HabitsManager() {
         <TextInput
           value={time}
           onChangeText={(t) => {
-            setTime(t);
+            setTime(maskTime(t));
             if (error) setError("");
           }}
           placeholder="Ex.: 19:00 — deixe vazio se não quiser"
           placeholderTextColor="#9E94AB"
           style={styles.input}
+          keyboardType="number-pad"
           maxLength={5}
           accessibilityLabel="Horário do hábito"
         />

@@ -1,12 +1,13 @@
-import { FontAwesome, FontAwesome6 } from "@expo/vector-icons";
+import { FontAwesome, FontAwesome6, Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Redirect, Tabs } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useContext } from "react";
-import { ActivityIndicator, KeyboardAvoidingView, Platform, View } from "react-native";
+import { KeyboardAvoidingView, Platform, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import AlarmOverlay from "@/components/AlarmOverlay";
+import { FocusLoading } from "@/components/FocusLogo";
 import LevelUpOverlay from "@/components/LevelUpOverlay";
 import { UserContext } from "@/context/UserContext";
 
@@ -41,11 +42,7 @@ const Layout = () => {
   // Abas só com sessão ativa: após logout (ou acesso direto pela URL)
   // o usuário volta para o Login
   if (!userContext?.authReady) {
-    return (
-      <View style={{ flex: 1, backgroundColor: "#0f172a", justifyContent: "center", alignItems: "center" }}>
-        <ActivityIndicator color="#a78bfa" size="large" />
-      </View>
-    );
+    return <FocusLoading />;
   }
 
   if (!userContext.user.uid) {
@@ -79,8 +76,8 @@ const Layout = () => {
                 tabBarStyle: {
                   position: "absolute",
                   bottom: Platform.OS === "ios" ? 20 : 15,
-                  left: 40,
-                  right: 40,
+                  left: 16,
+                  right: 16,
                   height: 65,
                   borderRadius: 30,
                   overflow: "hidden",
@@ -107,10 +104,14 @@ const Layout = () => {
                 ),
               }}
             >
-              {/* DESAFIOS (hub) */}
+              {/* Barra com as funções principais (pedido do grupo):
+                  Início · Foco · Desafios · Grupos · Perfil */}
+
+              {/* INÍCIO (hub) */}
               <Tabs.Screen
                 name="challenges"
                 options={{
+                  tabBarAccessibilityLabel: "Início",
                   tabBarIcon: ({ focused }) => (
                     <TabIcon focused={focused}>
                       <FontAwesome6
@@ -124,10 +125,24 @@ const Layout = () => {
                 }}
               />
 
-              {/* CONQUISTAS */}
+              {/* FOCO */}
               <Tabs.Screen
-                name="achievements"
+                name="focus"
                 options={{
+                  tabBarAccessibilityLabel: "Foco",
+                  tabBarIcon: ({ focused }) => (
+                    <TabIcon focused={focused}>
+                      <Ionicons name="stopwatch" size={22} color="#fff" style={{ opacity: focused ? 1 : 0.7 }} />
+                    </TabIcon>
+                  ),
+                }}
+              />
+
+              {/* DESAFIOS (minha rotina) */}
+              <Tabs.Screen
+                name="routine"
+                options={{
+                  tabBarAccessibilityLabel: "Desafios",
                   tabBarIcon: ({ focused }) => (
                     <TabIcon focused={focused}>
                       <FontAwesome6
@@ -141,10 +156,24 @@ const Layout = () => {
                 }}
               />
 
-              {/* PROFILE */}
+              {/* GRUPOS */}
+              <Tabs.Screen
+                name="groups"
+                options={{
+                  tabBarAccessibilityLabel: "Grupos",
+                  tabBarIcon: ({ focused }) => (
+                    <TabIcon focused={focused}>
+                      <Ionicons name="people" size={22} color="#fff" style={{ opacity: focused ? 1 : 0.7 }} />
+                    </TabIcon>
+                  ),
+                }}
+              />
+
+              {/* PERFIL */}
               <Tabs.Screen
                 name="profile"
                 options={{
+                  tabBarAccessibilityLabel: "Perfil",
                   tabBarIcon: ({ focused }) => (
                     <TabIcon focused={focused}>
                       <FontAwesome
@@ -162,15 +191,13 @@ const Layout = () => {
               <Tabs.Screen name="progress" options={{ href: null }} />
               <Tabs.Screen name="ranking" options={{ href: null }} />
               <Tabs.Screen name="index" options={{ href: null }} />
-              <Tabs.Screen name="routine" options={{ href: null }} />
               <Tabs.Screen name="catalog" options={{ href: null }} />
-              <Tabs.Screen name="groups" options={{ href: null }} />
+              <Tabs.Screen name="achievements" options={{ href: null }} />
               <Tabs.Screen name="bookshelf" options={{ href: null }} />
               <Tabs.Screen name="book" options={{ href: null }} />
               <Tabs.Screen name="book-search" options={{ href: null }} />
               <Tabs.Screen name="xp-history" options={{ href: null }} />
               <Tabs.Screen name="group" options={{ href: null }} />
-              <Tabs.Screen name="focus" options={{ href: null }} />
               <Tabs.Screen name="task" options={{ href: null }} />
               <Tabs.Screen name="finance" options={{ href: null }} />
               <Tabs.Screen name="reminders" options={{ href: null }} />
@@ -179,6 +206,8 @@ const Layout = () => {
               <Tabs.Screen name="diary" options={{ href: null }} />
               <Tabs.Screen name="diary-entry" options={{ href: null }} />
               <Tabs.Screen name="user" options={{ href: null }} />
+              <Tabs.Screen name="premium" options={{ href: null }} />
+              <Tabs.Screen name="terms" options={{ href: null }} />
             </Tabs>
           </KeyboardAvoidingView>
         </SafeAreaView>

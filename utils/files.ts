@@ -9,16 +9,37 @@ import { notify } from "@/utils/feedback";
 // TODO Firebase: enviar o arquivo para o Storage e guardar a URL pública
 // (hoje fica só o caminho local, que outros aparelhos não abrem).
 
+// Fotos de provas, anexos e projetos em qualidade máxima (pedido do grupo: mostrar os
+// detalhes). No navegador a foto vira texto salvo no aparelho, então fica um pouco menor.
+// A foto de perfil continua com o recorte e a compressão próprios.
+export const PHOTO_QUALITY = Platform.OS === "web" ? 0.85 : 1;
+
 export async function pickImage(): Promise<FileRef | null> {
   const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
   if (!permission.granted) {
     notify("Permissão necessária", "Libere o acesso às fotos para anexar uma imagem.");
     return null;
   }
-  const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], quality: 0.7 });
+  const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], quality: PHOTO_QUALITY });
   if (result.canceled) return null;
   const asset = result.assets[0];
   return { uri: asset.uri, name: asset.fileName ?? "imagem.jpg", kind: "image" };
+}
+
+// Tirar foto na hora com a câmera (prova das tarefas do grupo).
+// No navegador abre o seletor de arquivo/câmera do próprio navegador.
+export async function takePhoto(): Promise<FileRef | null> {
+  if (Platform.OS !== "web") {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      notify("Permissão necessária", "Libere o acesso à câmera para tirar a foto.");
+      return null;
+    }
+  }
+  const result = await ImagePicker.launchCameraAsync({ mediaTypes: ["images"], quality: PHOTO_QUALITY });
+  if (result.canceled) return null;
+  const asset = result.assets[0];
+  return { uri: asset.uri, name: asset.fileName ?? "foto.jpg", kind: "image" };
 }
 
 export async function pickDocument(types = ["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "text/plain"]): Promise<FileRef | null> {

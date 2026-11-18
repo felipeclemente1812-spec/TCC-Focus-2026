@@ -15,6 +15,7 @@ import {
 import BookCover from "@/components/BookCover";
 import { BOOK_DONE_XP, READING_GOAL_XP } from "@/constants/gamification";
 import { BooksContext, BookStatus, STATUS_LABEL } from "@/context/BooksContext";
+import { UsageMeter } from "@/components/PremiumGate";
 
 type Filter = "todos" | BookStatus;
 const FILTERS: { key: Filter; label: string }[] = [
@@ -99,6 +100,8 @@ export default function Bookshelf() {
             <Text style={styles.title}>Minha Estante</Text>
             <View style={{ width: 25 }} />
           </View>
+
+          <UsageMeter limit="livros" label="Livros na estante" />
 
           {/* META DIÁRIA */}
           <View style={styles.goalCard}>

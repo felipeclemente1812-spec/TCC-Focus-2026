@@ -19,6 +19,7 @@ import {
   DEFAULT_ROUTINE_IDS,
   Frequency,
 } from "@/constants/challenges";
+import { FocusLogo } from "@/components/FocusLogo";
 import { CYCLE_BONUS, XP_BY_FREQUENCY } from "@/constants/gamification";
 import { MAX_TASKS, RoutineContext } from "@/context/RoutineContext";
 import { displayName, UserContext } from "@/context/UserContext";
@@ -154,6 +155,8 @@ export default function Onboarding() {
     <SafeAreaView style={styles.safe}>
       <LinearGradient colors={["#5B21B6", "#1E1B4B"]} style={styles.flex}>
         <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={styles.content}>
+          <FocusLogo size={130} style={{ alignSelf: "center", marginBottom: 16 }} />
+
           {/* PROGRESSO DOS PASSOS */}
           <View style={styles.stepsRow}>
             {STEPS.map((s, i) => (

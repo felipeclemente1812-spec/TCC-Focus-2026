@@ -27,6 +27,7 @@ import {
   syncReminders,
 } from "@/services/notifications";
 import { loadJSON, saveJSON } from "@/utils/localStore";
+import { FREE_LIMITS, limitReached, PremiumContext } from "@/context/PremiumContext";
 
 // Funcionalidades das tarefas da rotina (lista do grupo): lembretes,
 // cronômetros, anotações, gratidões, flashcards, pessoas, 3 prioridades,
@@ -259,6 +260,8 @@ type TaskExtrasContextType = Saved & {
 export const TaskExtrasContext = createContext<TaskExtrasContextType | null>(null);
 
 export function TaskExtrasProvider({ uid, children }: { uid: string; children: ReactNode }) {
+  // Plano grátis: limites de uso (Focus Premium tira os limites)
+  const isPremium = useContext(PremiumContext)?.isPremium ?? false;
   const routine = useContext(RoutineContext);
   const [data, setData] = useState<Saved>(EMPTY);
   const [ready, setReady] = useState(!uid);
@@ -408,6 +411,11 @@ export function TaskExtrasProvider({ uid, children }: { uid: string; children: R
 
   const setReminder = async (taskId: string, setting: ReminderSetting) => {
     if (!TIME_RE.test(setting.time)) return "Horário inválido. Use o formato 19:00.";
+    // Plano grátis: até 3 desafios com lembrete ligado
+    const onCount = Object.entries(ref.current.reminders).filter(([id, r]) => r.on && id !== taskId).length;
+    if (!isPremium && setting.on && onCount >= FREE_LIMITS.lembretes) {
+      return limitReached(`No plano grátis, dá para ligar o lembrete de ${FREE_LIMITS.lembretes} desafios.`);
+    }
     if (setting.on && !(await ensurePermission())) {
       return "Permita as notificações do Focus nas configurações do aparelho ou do navegador.";
     }
@@ -424,6 +432,8 @@ export function TaskExtrasProvider({ uid, children }: { uid: string; children: R
       taskIds.forEach((taskId) => {
         // Semanais/mensais não têm lembrete próprio (vão no "reveja seus objetivos")
         if (CATALOG_BY_ID[taskId]?.frequency !== "daily") return;
+        // Plano grátis: liga só até o limite
+        if (!isPremium && !reminders[taskId]?.on && Object.values(reminders).filter((r) => r.on).length >= FREE_LIMITS.lembretes) return;
         const time = reminderTimeFrom(d, taskId);
         // Tarefas de sono sem "Meu sono" configurado ficam de fora
         if (!time) return;

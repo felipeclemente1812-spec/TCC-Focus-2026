@@ -4,6 +4,7 @@ import { GOAL_COLORS, MoneyType } from "@/constants/finance";
 import { dayKey, monthKey, weekKey } from "@/constants/gamification";
 import { RoutineContext } from "@/context/RoutineContext";
 import { loadJSON, saveJSON } from "@/utils/localStore";
+import { FREE_LIMITS, limitReached, PremiumContext } from "@/context/PremiumContext";
 
 // Finanças (funções do Squill dentro do Focus): despesas e receitas,
 // cofrinhos com depósitos, limite de gastos do mês e meta de economia.
@@ -102,6 +103,8 @@ type FinanceContextType = Saved & {
 export const FinanceContext = createContext<FinanceContextType | null>(null);
 
 export function FinanceProvider({ uid, children }: { uid: string; children: ReactNode }) {
+  // Plano grátis: limites de uso (Focus Premium tira os limites)
+  const isPremium = useContext(PremiumContext)?.isPremium ?? false;
   const routine = useContext(RoutineContext);
   const [data, setData] = useState<Saved>(EMPTY);
   const [ready, setReady] = useState(!uid);
@@ -147,6 +150,10 @@ export function FinanceProvider({ uid, children }: { uid: string; children: Reac
   };
 
   const addTransaction = (input: TransactionInput) => {
+    const inMonth = ref.current.transactions.filter((t) => monthKey(new Date(t.createdAt)) === monthKey()).length;
+    if (!isPremium && inMonth >= FREE_LIMITS.lancamentosMes) {
+      return limitReached(`No plano grátis, dá para anotar ${FREE_LIMITS.lancamentosMes} lançamentos por mês.`);
+    }
     const err = validate(input);
     if (err) return err;
     const t: Transaction = { ...input, name: input.name.trim().slice(0, 40), id: newId("t"), createdAt: Date.now() };
@@ -196,6 +203,9 @@ export function FinanceProvider({ uid, children }: { uid: string; children: Reac
   };
 
   const saveGoal = (goal: Omit<SavingsGoal, "id" | "deposits" | "createdAt">, id?: string) => {
+    if (!isPremium && !id && ref.current.goals.length >= FREE_LIMITS.cofrinhos) {
+      return limitReached(`No plano grátis, dá para ter ${FREE_LIMITS.cofrinhos} cofrinho.`);
+    }
     if (goal.name.trim().length < 2) return "Dê um nome ao cofrinho.";
     if (!(goal.target > 0)) return "Digite o valor que quer juntar.";
     if (!/^\d{4}-\d{2}-\d{2}$/.test(goal.deadline)) return "Prazo inválido. Use dd/mm/aa.";

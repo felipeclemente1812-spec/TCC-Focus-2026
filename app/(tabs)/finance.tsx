@@ -27,6 +27,7 @@ import {
 import { MonthCompareChart, SavedChart } from "@/components/FinanceWidgets";
 import { dayKey, daysLeftInMonth, monthKey } from "@/constants/gamification";
 import { confirmAction } from "@/utils/feedback";
+import { UsageMeter } from "@/components/PremiumGate";
 import {
   byCategory,
   dailySeries,
@@ -192,6 +193,8 @@ function Summary() {
           </TouchableOpacity>
         ))}
       </View>
+
+      <UsageMeter limit="lancamentosMes" label="Lançamentos este mês" />
 
       {/* TOTAIS */}
       <View style={styles.totalsRow}>

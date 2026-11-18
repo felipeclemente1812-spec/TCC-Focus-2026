@@ -19,6 +19,7 @@ import {
 } from "@/constants/gamification";
 import { XPContext } from "@/context/XPContext";
 import { loadJSON, saveJSON, storageKeys } from "@/utils/localStore";
+import { FREE_LIMITS, limitReached, PremiumContext } from "@/context/PremiumContext";
 
 export type { Frequency } from "@/constants/challenges";
 
@@ -121,6 +122,8 @@ function withinLimits(ids: string[]) {
 
 // uid vazio = sem sessão: usa a rotina padrão e não salva
 export function RoutineProvider({ uid, children }: { uid: string; children: ReactNode }) {
+  // Plano grátis: limites de uso (Focus Premium tira os limites)
+  const isPremium = useContext(PremiumContext)?.isPremium ?? false;
   const xpContext = useContext(XPContext);
   const [selectedIds, setSelectedIds] = useState<string[]>(DEFAULT_ROUTINE_IDS);
   const [planned, setPlanned] = useState(!uid);
@@ -201,6 +204,13 @@ export function RoutineProvider({ uid, children }: { uid: string; children: Reac
     if (isSelected(catalogId)) return "Esse desafio já está na sua rotina.";
 
     const sameCycle = tasks.filter((t) => t.frequency === item.frequency);
+    // Plano grátis: até 2 semanais e 1 mensal (diários seguem o limite normal)
+    const freeMax = item.frequency === "weekly" ? FREE_LIMITS.semanais : item.frequency === "monthly" ? FREE_LIMITS.mensais : null;
+    if (!isPremium && freeMax !== null && sameCycle.length >= freeMax) {
+      return limitReached(
+        `No plano grátis, a rotina tem até ${freeMax} desafio${freeMax > 1 ? "s" : ""} ${item.frequency === "weekly" ? "semanais" : "mensal"}.`,
+      );
+    }
     const max = MAX_TASKS[item.frequency];
     if (sameCycle.length >= max) {
       return `Seu ${CYCLE_LABEL[item.frequency].toLowerCase()} já tem ${max} desafios. Remova um para adicionar outro.`;

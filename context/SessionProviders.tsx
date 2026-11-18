@@ -1,6 +1,6 @@
 import React, { ReactNode, useContext, useEffect } from "react";
-import { ActivityIndicator, View } from "react-native";
 
+import { FocusLoading } from "@/components/FocusLogo";
 import { ACHIEVEMENTS, computeStats, levelInfo } from "@/constants/gamification";
 import { BooksContext, BooksProvider } from "@/context/BooksContext";
 import { DiaryContext, DiaryProvider } from "@/context/DiaryContext";
@@ -9,6 +9,7 @@ import { FocusProvider } from "@/context/FocusContext";
 import { GroupsContext, GroupsProvider } from "@/context/GroupsContext";
 import { HabitsContext, HabitsProvider } from "@/context/HabitsContext";
 import { PlannerContext, PlannerProvider } from "@/context/PlannerContext";
+import { PremiumContext, PremiumProvider } from "@/context/PremiumContext";
 import { RoutineContext, RoutineProvider } from "@/context/RoutineContext";
 import { TaskExtrasContext, TaskExtrasProvider } from "@/context/TaskExtrasContext";
 import { UserContext } from "@/context/UserContext";
@@ -30,6 +31,7 @@ export function SessionProviders({ children }: { children: ReactNode }) {
 
   return (
     <XPProvider key={uid || "sem-sessao"} uid={uid}>
+      <PremiumProvider uid={uid}>
       <RoutineProvider uid={uid}>
         <HabitsProvider uid={uid}>
           <BooksProvider uid={uid}>
@@ -52,6 +54,7 @@ export function SessionProviders({ children }: { children: ReactNode }) {
           </BooksProvider>
         </HabitsProvider>
       </RoutineProvider>
+      </PremiumProvider>
     </XPProvider>
   );
 }
@@ -132,6 +135,7 @@ function WaitForSavedData({ children }: { children: ReactNode }) {
   const financeReady = useContext(FinanceContext)?.ready ?? true;
   const plannerReady = useContext(PlannerContext)?.ready ?? true;
   const diaryReady = useContext(DiaryContext)?.ready ?? true;
+  const premiumReady = useContext(PremiumContext)?.ready ?? true;
 
   if (
     !xpReady ||
@@ -142,7 +146,8 @@ function WaitForSavedData({ children }: { children: ReactNode }) {
     !extrasReady ||
     !financeReady ||
     !plannerReady ||
-    !diaryReady
+    !diaryReady ||
+    !premiumReady
   ) {
     return <Loading />;
   }
@@ -151,16 +156,5 @@ function WaitForSavedData({ children }: { children: ReactNode }) {
 }
 
 function Loading() {
-  return (
-    <View
-      style={{
-        flex: 1,
-        backgroundColor: "#1e1b4b",
-        justifyContent: "center",
-        alignItems: "center",
-      }}
-    >
-      <ActivityIndicator color="#a78bfa" size="large" />
-    </View>
-  );
+  return <FocusLoading />;
 }

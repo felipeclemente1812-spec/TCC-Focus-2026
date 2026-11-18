@@ -10,8 +10,8 @@ import {
   View,
 } from "react-native";
 
-import CustomGoals from "@/components/CustomGoals";
 import HabitsManager from "@/components/HabitsManager";
+import { UsageMeter } from "@/components/PremiumGate";
 import { CATEGORY_BY_ID } from "@/constants/challenges";
 import { HabitsContext } from "@/context/HabitsContext";
 import {
@@ -125,11 +125,14 @@ export default function Routine() {
             ))}
           </View>
 
+          {/* Cotas do plano grátis */}
+          {tab === "weekly" ? <UsageMeter limit="semanais" label="Desafios semanais na rotina" /> : null}
+          {tab === "monthly" ? <UsageMeter limit="mensais" label="Desafios mensais na rotina" /> : null}
+          {tab === "habitos" ? <UsageMeter limit="habitos" label="Hábitos criados" /> : null}
+
           {tab === "habitos" ? (
-            <>
-              <HabitsManager />
-              <CustomGoals />
-            </>
+            // Só os hábitos: as "metas próprias" saíram daqui (pedido do grupo)
+            <HabitsManager />
           ) : (
           <>
 

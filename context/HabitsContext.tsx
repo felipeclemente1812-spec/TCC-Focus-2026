@@ -14,6 +14,7 @@ import {
 } from "@/constants/gamification";
 import { XPContext } from "@/context/XPContext";
 import { loadJSON, saveJSON } from "@/utils/localStore";
+import { FREE_LIMITS, limitReached, PremiumContext } from "@/context/PremiumContext";
 
 // Hábitos criados pela pessoa: dias da semana, horário opcional e
 // bônus de pontualidade. O XP vai para o mesmo XPContext (sem 2ª fonte).
@@ -104,6 +105,8 @@ type HabitsContextType = {
 export const HabitsContext = createContext<HabitsContextType | null>(null);
 
 export function HabitsProvider({ uid, children }: { uid: string; children: ReactNode }) {
+  // Plano grátis: limites de uso (Focus Premium tira os limites)
+  const isPremium = useContext(PremiumContext)?.isPremium ?? false;
   const xpContext = useContext(XPContext);
   const [habits, setHabits] = useState<Habit[]>([]);
   const [ready, setReady] = useState(!uid);
@@ -140,6 +143,9 @@ export function HabitsProvider({ uid, children }: { uid: string; children: React
     const error = validate(title, days, time);
     if (error) return error;
     if (habits.length >= MAX_HABITS) return `Limite de ${MAX_HABITS} hábitos.`;
+    if (!isPremium && habits.length >= FREE_LIMITS.habitos) {
+      return limitReached(`No plano grátis, dá para ter ${FREE_LIMITS.habitos} hábitos.`);
+    }
     if (habits.some((h) => h.title.toLowerCase() === title.trim().toLowerCase())) {
       return "Você já tem um hábito com esse nome.";
     }

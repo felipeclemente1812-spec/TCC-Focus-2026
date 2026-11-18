@@ -34,6 +34,7 @@ import {
   validateInvite,
   validateTaskTitle,
 } from "@/services/groupsService";
+import { FREE_LIMITS, limitReached, PremiumContext } from "@/context/PremiumContext";
 
 // Grupos de amigos: tarefas do grupo, ranking entre membros e mural.
 // Dados no Firestore (groups/{id}), em tempo real entre aparelhos (docs/CONTRATO_GRUPOS.md).
@@ -55,7 +56,7 @@ type GroupsContextType = {
   addTask: (groupId: string, title: string, frequency: Frequency, rule?: TaskRule) => Result;
   removeTask: (groupId: string, taskId: string) => void;
   // XP ganho (0 se já feito ou se ficou aguardando aprovação)
-  completeTask: (groupId: string, taskId: string, proof?: string) => Result & { gained: number; pending: boolean };
+  completeTask: (groupId: string, taskId: string, photo: string | null, proof?: string) => Result & { gained: number; pending: boolean };
   reviewCompletion: (groupId: string, memberId: string, taskId: string, period: string, approve: boolean) => void;
   addPost: (groupId: string, text: string) => Promise<void>;
   // ADM
@@ -72,6 +73,8 @@ type GroupsContextType = {
 export const GroupsContext = createContext<GroupsContextType | null>(null);
 
 export function GroupsProvider({ uid, children }: { uid: string; children: ReactNode }) {
+  // Plano grátis: limites de uso (Focus Premium tira os limites)
+  const isPremium = useContext(PremiumContext)?.isPremium ?? false;
   const xpContext = useContext(XPContext);
   const userContext = useContext(UserContext);
   const finance = useContext(FinanceContext);
@@ -114,6 +117,9 @@ export function GroupsProvider({ uid, children }: { uid: string; children: React
   const createGroup = (name: string) => {
     const error = validateGroupName(name);
     if (error) return { error };
+    if (!isPremium && groups.length >= FREE_LIMITS.grupos) {
+      return { error: limitReached(`No plano grátis, dá para participar de ${FREE_LIMITS.grupos} grupo.`) };
+    }
     if (groups.length >= MAX_GROUPS) {
       return { error: `Você pode participar de até ${MAX_GROUPS} grupos.` };
     }
@@ -132,6 +138,9 @@ export function GroupsProvider({ uid, children }: { uid: string; children: React
     }
     const mine = allGroups.find((g) => g.code === clean);
     if (mine) return { error: "Você já participa desse grupo.", id: mine.id };
+    if (!isPremium && groups.length >= FREE_LIMITS.grupos) {
+      return { error: limitReached(`No plano grátis, dá para participar de ${FREE_LIMITS.grupos} grupo.`) };
+    }
     if (groups.length >= MAX_GROUPS) {
       return { error: `Você pode participar de até ${MAX_GROUPS} grupos.` };
     }
@@ -180,7 +189,7 @@ export function GroupsProvider({ uid, children }: { uid: string; children: React
     return { error: null };
   };
 
-  const addTask = (groupId: string, title: string, frequency: Frequency, rule: TaskRule = "livre") => {
+  const addTask = (groupId: string, title: string, frequency: Frequency, rule: TaskRule = "prova") => {
     const error = validateTaskTitle(title);
     if (error) return { error };
     const group = getGroup(groupId);
@@ -220,8 +229,7 @@ export function GroupsProvider({ uid, children }: { uid: string; children: React
     !!xpContext?.completeChallenge(`grp-${group.id}-${period}`, xp, `Grupo ${group.name}: ${taskTitle}`);
 
   // Concluir tarefa do grupo seguindo a regra do ADM:
-  // livre = XP na hora; prova = precisa de texto; aprovação = XP quando um ADM aprovar
-  const completeTask = (groupId: string, taskId: string, proof = "") => {
+  const completeTask = (groupId: string, taskId: string, photo: string | null, proof = "") => {
     const none = { gained: 0, pending: false };
     const group = getGroup(groupId);
     const task = group?.tasks.find((t) => t.id === taskId);
@@ -229,9 +237,13 @@ export function GroupsProvider({ uid, children }: { uid: string; children: React
 
     const rule = task.rule ?? "livre";
     const cleanProof = proof.trim();
-    if (rule !== "livre" && cleanProof.length < 15) {
-      return { error: "Conte como você fez (15+ letras) para concluir.", ...none };
+    // texto = contar o que fez (15+ letras); as outras pedem foto; aprovação = XP quando um ADM aprovar
+    if (rule === "texto") {
+      if (cleanProof.length < 15) return { error: "Conte o que você fez (15+ letras) para concluir.", ...none };
+    } else if (!photo) {
+      return { error: "Tire uma foto mostrando que você fez para concluir.", ...none };
     }
+    const withPhoto = rule !== "texto" && !!photo;
 
     const xp = taskXp(task);
     const period = taskPeriod(task);
@@ -250,6 +262,8 @@ export function GroupsProvider({ uid, children }: { uid: string; children: React
           xp,
           at: Date.now(),
           proof: cleanProof || undefined,
+          photo: withPhoto && !photo!.startsWith("data:") ? photo! : undefined,
+          hasPhoto: withPhoto || undefined,
           status: pending ? "pendente" : "ok",
           credited: !pending,
         }),

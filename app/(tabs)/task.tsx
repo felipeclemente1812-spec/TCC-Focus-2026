@@ -1,6 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
-import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
@@ -33,9 +32,11 @@ import { DAY_SHORT, WEEK_ORDER } from "@/context/HabitsContext";
 import { AlarmCard, StepsCard } from "@/components/DeviceModules";
 import { QuickSave, SavedChart, WeekMiniChart } from "@/components/FinanceWidgets";
 import { PlannerModule } from "@/components/PlannerModules";
+import { ZoomablePhoto } from "@/components/PhotoViewer";
 import { RoutineContext } from "@/context/RoutineContext";
 import { confirmAction } from "@/utils/feedback";
 import { openDoNotDisturb } from "@/utils/focusMode";
+import { PHOTO_QUALITY } from "@/utils/files";
 import {
   Attachment,
   Entry,
@@ -1282,10 +1283,14 @@ function BacklogCard() {
       <View style={styles.chips}>
         <TextInput
           value={due}
-          onChangeText={setDue}
+          onChangeText={(t) => {
+            const d = t.replace(/\D/g, "").slice(0, 4);
+            setDue(d.length > 2 ? `${d.slice(0, 2)}/${d.slice(2)}` : d);
+          }}
           placeholder="Prazo dd/mm (opcional)"
           placeholderTextColor="#9E94AB"
           style={[styles.input, { flex: 1, marginBottom: 0 }]}
+          keyboardType="number-pad"
           maxLength={5}
         />
         <TouchableOpacity style={styles.smallButton} onPress={add}>
@@ -1657,7 +1662,7 @@ function AttachmentsCard({ taskId, accept }: { taskId: string; accept: "image" |
       if (accept === "image") {
         const result = await ImagePicker.launchImageLibraryAsync({
           mediaTypes: ["images"],
-          quality: 0.4,
+          quality: PHOTO_QUALITY,
           base64: Platform.OS === "web",
         });
         if (result.canceled || !result.assets[0]) return;
@@ -1700,7 +1705,7 @@ function AttachmentsCard({ taskId, accept }: { taskId: string; accept: "image" |
         <View style={styles.gallery}>
           {list.map((a) => (
             <View key={a.id} style={styles.galleryItem}>
-              <Image source={{ uri: a.uri }} style={styles.galleryImage} contentFit="cover" />
+              <ZoomablePhoto uri={a.uri} style={styles.galleryImage} label={a.name} />
               <Text style={styles.entryDate}>{formatDateTime(a.at)}</Text>
               <TouchableOpacity onPress={() => askRemove("Remover anexo?", () => extras.removeAttachment(a.id))} hitSlop={8} accessibilityLabel="Remover imagem">
                 <Ionicons name="close" style={styles.remove} />
@@ -1911,7 +1916,7 @@ const styles = StyleSheet.create({
 
   gallery: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 10 },
   galleryItem: { width: 96, alignItems: "flex-start" },
-  galleryImage: { width: 96, height: 96, borderRadius: 8, backgroundColor: "#57356F" },
+  galleryImage: { width: 140, height: 140, borderRadius: 10, backgroundColor: "#57356F" },
   diaryRow: { flexDirection: "row", alignItems: "center", gap: 8, borderRadius: 8, borderLeftWidth: 4, backgroundColor: "rgba(255,255,255,0.06)", paddingHorizontal: 10, paddingVertical: 9, marginTop: 8 },
   diaryTitle: { flex: 1, color: "#FFF", fontSize: 14, fontWeight: "600" },
   diaryDate: { color: "#9E94AB", fontSize: 11 },

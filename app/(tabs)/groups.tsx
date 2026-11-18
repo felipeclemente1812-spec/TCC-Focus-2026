@@ -15,6 +15,7 @@ import {
 import { GroupsContext } from "@/context/GroupsContext";
 import { UserContext } from "@/context/UserContext";
 import { groupRanking, MAX_GROUPS } from "@/services/groupsService";
+import { UsageMeter } from "@/components/PremiumGate";
 
 export default function Groups() {
   const groupsContext = useContext(GroupsContext);
@@ -87,6 +88,8 @@ export default function Groups() {
               dependem do servidor. Os “Amigos exemplo” só ilustram a competição.
             </Text>
           </View>
+
+          <UsageMeter limit="grupos" label="Grupos" />
 
           {/* LISTA */}
           {groups.length === 0 ? (

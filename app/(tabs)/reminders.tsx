@@ -7,6 +7,7 @@ import { CardTitle, maskTime, ScreenShell, ui } from "@/components/ScreenShell";
 import { DAY_SHORT, WEEK_ORDER } from "@/context/HabitsContext";
 import { RoutineContext } from "@/context/RoutineContext";
 import { DigestSettings, TaskExtrasContext } from "@/context/TaskExtrasContext";
+import { UsageMeter } from "@/components/PremiumGate";
 
 // Central de lembretes: o que chega na barra de notificações.
 // Diárias: uma notificação por tarefa (no horário dela) + resumo da manhã
@@ -70,6 +71,8 @@ export default function Reminders() {
 
   return (
     <ScreenShell title="Central de lembretes">
+      <UsageMeter limit="lembretes" label="Desafios com lembrete ligado" />
+
       {/* LEMBRETES GERAIS */}
       <View style={ui.card}>
         <View style={ui.rowBetween}>

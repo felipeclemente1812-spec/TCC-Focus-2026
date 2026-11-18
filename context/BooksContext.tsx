@@ -15,6 +15,7 @@ import {
 import { RoutineContext } from "@/context/RoutineContext";
 import { XPContext } from "@/context/XPContext";
 import { loadJSON, saveJSON } from "@/utils/localStore";
+import { FREE_LIMITS, limitReached, PremiumContext } from "@/context/PremiumContext";
 
 // Minha Estante + meta diária de leitura.
 // XP (regras aprovadas): bater a meta do dia (+50, 1x/dia) e concluir um livro
@@ -129,6 +130,8 @@ type BooksContextType = {
 export const BooksContext = createContext<BooksContextType | null>(null);
 
 export function BooksProvider({ uid, children }: { uid: string; children: ReactNode }) {
+  // Plano grátis: limites de uso (Focus Premium tira os limites)
+  const isPremium = useContext(PremiumContext)?.isPremium ?? false;
   const xpContext = useContext(XPContext);
   const routine = useContext(RoutineContext);
   const [books, setBooks] = useState<Book[]>([]);
@@ -200,6 +203,9 @@ export function BooksProvider({ uid, children }: { uid: string; children: ReactN
   };
 
   const addBook = (input: BookInput) => {
+    if (!isPremium && books.length >= FREE_LIMITS.livros) {
+      return { error: limitReached(`No plano grátis, a estante guarda até ${FREE_LIMITS.livros} livros.`) };
+    }
     const parsed = parseInput(input);
     if ("error" in parsed) return { error: parsed.error };
     if (books.some((b) => b.title.toLowerCase() === parsed.value.title.toLowerCase())) {

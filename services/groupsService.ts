@@ -43,11 +43,14 @@ export type GroupInvite = {
 };
 
 // Regra para concluir uma tarefa do grupo (definida por um ADM)
-export type TaskRule = "livre" | "prova" | "aprovacao";
+export type TaskRule = "livre" | "texto" | "prova" | "aprovacao";
 export const RULE_LABEL: Record<TaskRule, string> = {
-  livre: "Marcar e pronto",
-  prova: "Com prova (texto ou foto)",
-  aprovacao: "Um ADM aprova",
+  // O ADM escolhe: só contar o que fez, foto como prova ou foto + aprovação.
+  // "livre" ficou só para tarefas antigas e pede foto
+  livre: "Foto como prova",
+  texto: "Contar o que fez",
+  prova: "Foto como prova",
+  aprovacao: "Foto + um ADM aprova",
 };
 
 export type GroupTask = {
@@ -65,7 +68,12 @@ export type GroupCompletion = {
   period: string; // ex.: "t-1@2026-10-23"
   xp: number;
   at: number;
-  proof?: string; // texto da prova (regra "prova" / "aprovacao")
+  proof?: string; // o que a pessoa contou (regra "texto") ou comentário junto da foto
+  // Foto da prova. Só vai para o Firestore quando for link (http) ou caminho curto do
+  // aparelho; foto em base64 (navegador) não é gravada para não estourar o limite do doc.
+  // TODO Firebase Storage: enviar a foto e guardar aqui a URL pública (aí todos veem).
+  photo?: string;
+  hasPhoto?: boolean; // a prova foi com foto (mesmo que a foto não esteja na nuvem)
   status?: "ok" | "pendente" | "recusada"; // sem = "ok"
   credited?: boolean; // XP pessoal já entrou (aprovações creditam depois)
   reviewedBy?: string;

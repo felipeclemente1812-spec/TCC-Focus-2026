@@ -1,6 +1,6 @@
 import React, { ReactNode, useContext, useEffect } from "react";
-import { ActivityIndicator, View } from "react-native";
 
+import { FocusLoading } from "@/components/FocusLogo";
 import { ACHIEVEMENTS, computeStats, levelInfo } from "@/constants/gamification";
 import { BooksContext, BooksProvider } from "@/context/BooksContext";
 import { DiaryContext, DiaryProvider } from "@/context/DiaryContext";
@@ -151,16 +151,5 @@ function WaitForSavedData({ children }: { children: ReactNode }) {
 }
 
 function Loading() {
-  return (
-    <View
-      style={{
-        flex: 1,
-        backgroundColor: "#1e1b4b",
-        justifyContent: "center",
-        alignItems: "center",
-      }}
-    >
-      <ActivityIndicator color="#a78bfa" size="large" />
-    </View>
-  );
+  return <FocusLoading />;
 }

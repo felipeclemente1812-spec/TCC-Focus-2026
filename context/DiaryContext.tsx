@@ -7,8 +7,7 @@ import { loadJSON, saveJSON } from "@/utils/localStore";
 
 // Diário (telas da Angela dentro do Focus, com o visual do app): anotações com
 // título, texto, cor de destaque, fonte e tamanho da letra. Escrever hoje (com conteúdo de verdade) cumpre "Escrever no diário".
-// Salvo LOCALMENTE neste aparelho, por usuário.
-// TODO Firebase: users/{uid}/diario/{id}
+// Salvo na nuvem (Firestore: users/{uid}/data/...), por usuário — via utils/localStore.
 
 export type DiaryEntry = {
   id: string;
@@ -21,18 +20,28 @@ export type DiaryEntry = {
   updatedAt: string; // ISO
 };
 
-// Cores de destaque (paleta do app)
-export const DIARY_COLORS = [
-  { id: "roxo", code: "#7C3AED" },
-  { id: "lilás", code: "#B832E5" },
-  { id: "azul", code: "#0EA5E9" },
-  { id: "verde", code: "#15A638" },
-  { id: "rosa", code: "#EC4899" },
-  { id: "amarelo", code: "#F59E0B" },
+// Cores do papel (Figma do Lucas): cada uma tem o seu fundo de tela
+export type DiaryTheme = { id: string; paper: string; bg: string; header: string; accent: string };
+export const DIARY_THEMES: DiaryTheme[] = [
+  { id: "amarelo", paper: "#FFF7B1", bg: "#6E4C2E", header: "#4B321D", accent: "#F59E0B" },
+  { id: "azul", paper: "#D1E8FF", bg: "#2F4C68", header: "#21374D", accent: "#0EA5E9" },
+  { id: "rosa", paper: "#FFD1E8", bg: "#8A5730", header: "#653E20", accent: "#EC4899" },
+  { id: "verde", paper: "#D1FFD1", bg: "#2F5B45", header: "#21432F", accent: "#15A638" },
 ];
-// Cores do papel da primeira versão -> cor equivalente da paleta
-const LEGACY: Record<string, string> = { "#FFF7B1": "#F59E0B", "#D1E8FF": "#0EA5E9", "#FFD1E8": "#EC4899", "#D1FFD1": "#15A638" };
-export const accentOf = (color: string) => LEGACY[color] ?? color;
+export const DIARY_COLORS = DIARY_THEMES.map((t) => ({ id: t.id, code: t.paper }));
+// Anotações da versão roxa guardaram a cor de destaque: volta para o papel
+const FROM_ACCENT: Record<string, string> = {
+  "#F59E0B": "#FFF7B1",
+  "#0EA5E9": "#D1E8FF",
+  "#EC4899": "#FFD1E8",
+  "#15A638": "#D1FFD1",
+  "#7C3AED": "#D1E8FF",
+  "#B832E5": "#FFD1E8",
+};
+export const themeOf = (color?: string): DiaryTheme =>
+  DIARY_THEMES.find((t) => t.paper === (FROM_ACCENT[color ?? ""] ?? color)) ?? DIARY_THEMES[0];
+// Cor forte da anotação (para bordas nas telas roxas, ex.: tarefa do diário)
+export const accentOf = (color: string) => themeOf(color).accent;
 
 export type DiaryFont = "padrao" | "serifa" | "maquina";
 export const DIARY_FONTS: { id: DiaryFont; label: string; family: string | undefined }[] = [

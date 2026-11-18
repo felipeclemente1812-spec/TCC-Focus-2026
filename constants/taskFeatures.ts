@@ -45,7 +45,7 @@ export type PlannerView =
   | { type: "sleepCompare"; scope: "week" | "month" }
   | { type: "dayCount" }
   | { type: "runs" }
-  | { type: "projects"; kind: "curso" | "projeto" | "criacao" | "aprender" | "any" }
+  | { type: "projects"; kind: "curso" | "projeto" | "criacao" | "any" } // criacao = projetos marcados como criação
   | { type: "meetup" }
   | { type: "proof" };
 
@@ -202,7 +202,7 @@ export const TASK_FEATURES: Record<string, TaskFeature> = {
   "soc-familia": planner("19:00", { type: "proof" }),
   "dig-limpar": planner("19:00", { type: "proof" }),
   "cri-projeto": planner("17:00", { type: "projects", kind: "any" }),
-  "cri-novo": planner("17:00", { type: "projects", kind: "aprender" }),
+  "cri-novo": planner("17:00", { type: "projects", kind: "curso" }),
 
   // MENSAIS — concluem só com progresso real
   "mes-est-curso": planner("10:00", { type: "projects", kind: "curso" }),
@@ -223,7 +223,7 @@ export const TASK_FEATURES: Record<string, TaskFeature> = {
   "mes-dig-detox": planner("21:00", { type: "dayCount" }),
   "mes-dig-redes": planner("21:00", { type: "dayCount" }),
   "mes-cri-obra": planner("17:00", { type: "projects", kind: "criacao" }),
-  "mes-cri-curso": planner("17:00", { type: "projects", kind: "aprender" }),
+  "mes-cri-curso": planner("17:00", { type: "projects", kind: "curso" }),
 };
 
 export const featureOf = (catalogId: string): TaskFeature =>

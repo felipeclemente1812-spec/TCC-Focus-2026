@@ -18,6 +18,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import UserAvatar from "@/components/UserAvatar";
 import { UserContext } from "@/context/UserContext";
 import { notify } from "@/utils/feedback";
+import { uploadWithFeedback } from "@/utils/files";
 
 const USERNAME_REGEX = /^[a-z0-9_.]{3,20}$/;
 
@@ -51,7 +52,14 @@ export default function CompleteProfileScreen() {
       quality: 0.7,
     });
 
-    if (!result.canceled) setAvatar(result.assets[0].uri);
+    if (result.canceled) return;
+    const asset = result.assets[0];
+    const url = await uploadWithFeedback(asset.uri, "avatar", {
+      name: asset.fileName ?? "avatar.jpg",
+      mimeType: asset.mimeType,
+      message: "Enviando foto de perfil...",
+    });
+    if (url) setAvatar(url);
   };
 
   const handleContinue = () => {
@@ -76,7 +84,7 @@ export default function CompleteProfileScreen() {
 
     setErro("");
 
-    // Só estado da sessão; gravar no Firestore fica para o backend
+    // O UserContext grava o perfil no Firestore (users/{uid})
     context?.updateUser({
       name: nomeLimpo,
       username: usuarioLimpo,

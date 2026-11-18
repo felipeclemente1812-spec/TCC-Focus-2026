@@ -1,0 +1,17 @@
+*Focus – atualização* 📲
+
+Segue o zip novo com:
+
+✅ *Prova na tarefa do grupo:* ao criar a tarefa, o ADM escolhe entre "Contar o que fez" (só texto), "Foto como prova" ou "Foto + um ADM aprova"
+✅ *Fotos com mais qualidade:* provas, anexos, desenhos e projetos agora ficam em qualidade máxima (a foto de perfil continua como estava)
+✅ *Ver foto em tela cheia:* é só tocar na foto pra ver ela inteira e os detalhes (no celular dá pra dar zoom). As miniaturas também ficaram maiores
+✅ *Logo do Focus em mais telas:* abertura do app, topo do Início, plano inicial, fim do Perfil e no aviso de subir de nível
+✅ *Criar hábito:* tirei a parte de "metas" dessa tela
+
+Cores, fontes e layout mantidos. Firebase não foi mexido.
+
+*Pra rodar:*
+1. Descompactar o zip
+2. Abrir a pasta no terminal
+3. npm install
+4. npx expo start

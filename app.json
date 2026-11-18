@@ -43,7 +43,14 @@
           }
         }
       ],
-      "expo-audio"
+      "expo-audio",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "O Focus usa suas fotos para anexar imagens e a foto do perfil.",
+          "cameraPermission": "O Focus usa a câmera para você tirar a foto que prova a tarefa do grupo."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

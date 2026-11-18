@@ -59,3 +59,34 @@ Só front-end; o Firebase não foi alterado. Tudo é salvo no aparelho, por usu�
   - Ficam salvos em cada anotação.
   - Uma anotação nova começa com a fonte e o tamanho da última.
 - **Integração com a tarefa (continua):** uma anotação de hoje com 30 letras ou mais conclui "Escrever no diário" (+100 XP, uma vez por dia). A tela da tarefa mostra o status e as últimas anotações.
+
+## Rodada Figma do Lucas + lista do grupo (12/11/2026)
+
+- **Barra de abas**: Início · Foco · Desafios (Minha rotina) · Grupos · Perfil. Conquistas, Progresso e Histórico de XP continuam no Perfil.
+- **Início com no máximo 6 blocos**: bem-vindo + XP (com sequência e XP da semana), ciclo de foco, hábitos de hoje, desafios (abas Diários/Semanais/Mensais num bloco só), 6 atalhos (Diário, Agenda, Desenvolvimento pessoal, Minha Estante, Finanças, Lembretes) e ranking.
+- **Diário no estilo do Figma**: papel amarelo, azul, rosa ou verde; o fundo da tela segue a cor. Folha pautada, data no topo, "Salvar anotação". Fonte e tamanho da letra continuam. Segue concluindo "Escrever no diário".
+- **Desenvolvimento pessoal**: saíram "Criação" e "Aprender algo novo". Em Projeto há as abas Todos / Criações / Outros, e ao criar um projeto dá para marcar "É uma criação". O que já existia foi convertido (criação → projeto-criação, aprender → curso).
+- **Semanal com comprovante**: agora só conclui com foto ou documento anexado (texto é opcional).
+- **Teclado numérico** padronizado: horário do hábito e prazo das pendências ganharam teclado de números e formato automático (os outros campos de data/hora já tinham).
+- **Logo**: mantido como estava (congelado).
+
+## Logo, foto nos grupos e hábitos (12/11/2026)
+
+- **Logo do Focus em mais lugares** (`components/FocusLogo.tsx`): telas de carregamento (abertura do app e dados salvos), topo do Início, plano inicial (onboarding), fim do Perfil ("Evoluindo um pouco a cada dia") e aviso de LEVEL UP (símbolo no lugar do foguete). Login e Cadastro já tinham.
+- **Tarefas do grupo pedem foto**: tocar no quadrado abre "Tirar foto" (câmera do celular; no navegador abre a câmera/arquivo). Só envia com a foto; comentário é opcional. A foto aparece embaixo da tarefa para o grupo ver e, na regra "Foto + um ADM aprova", o ADM vê a foto antes de aprovar. Permissão de câmera adicionada no app.json.
+- **Criar hábito**: tirei o bloco "Metas próprias" da aba Hábitos (fica só o cadastro de hábitos).
+
+## Prova da tarefa do grupo e qualidade das fotos (12/11/2026)
+
+- **Ao criar a tarefa do grupo, o ADM escolhe a prova**: "Contar o que fez" (só texto, 15+ letras), "Foto como prova" ou "Foto + um ADM aprova". O que cada um contou aparece embaixo da tarefa; as fotos aparecem em miniatura.
+- **Fotos com mais qualidade** (menos as de perfil): provas, anexos, desenhos e projetos agora são salvos em qualidade máxima no celular (`PHOTO_QUALITY` em utils/files.ts; no navegador 85% para não estourar o armazenamento).
+- **Ver a foto em tela cheia** (`components/PhotoViewer.tsx`): tocar em qualquer foto de prova, anexo, desenho ou projeto abre a foto inteira, sem corte, em fundo preto (no celular dá para dar zoom). Miniaturas ficaram maiores.
+
+## Junção com a versão do backend (13/11/2026)
+
+Esta pasta é a versão do backend (Firestore: dados do usuário, perfil, @, perfil público e grupos em tempo real) **com todas as mudanças de tela das rodadas acima**. O backend não foi alterado; nos grupos só entraram os campos novos da prova.
+
+**Para quem cuida do backend:**
+- `GroupCompletion` ganhou `photo?` (foto da prova) e `hasPhoto?` (a prova foi com foto). `TaskRule` ganhou `"texto"` ("Contar o que fez"). Tarefas antigas com `"livre"` agora pedem foto.
+- **Foto da prova (TODO Firebase Storage):** hoje a foto só é gravada no grupo quando é link `http` ou caminho curto do celular; foto em base64 (navegador) não é gravada, para não passar do limite de 1 MB do documento. Por isso os outros membros veem "foto enviada" no lugar da foto. Para todos verem, enviar a foto para o Storage em `GroupsContext.completeTask` e guardar a URL em `photo`.
+- A **foto do grupo** (`group.photo`) tem o mesmo cuidado pendente: no navegador ela vem em base64.

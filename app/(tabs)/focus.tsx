@@ -94,7 +94,7 @@ export default function Focus() {
   return (
     <View style={styles.container}>
       <LinearGradient colors={["#6B4A91", "#43247D"]} style={styles.background}>
-        <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={styles.content}>
+        <View style={styles.fixedHeader}>
           <View style={styles.header}>
             <TouchableOpacity
               onPress={() =>
@@ -111,7 +111,8 @@ export default function Focus() {
 
             <View style={{ width: 25 }} />
           </View>
-
+        </View>
+        <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={styles.content}>
           {/* PRESETS */}
           <View style={styles.presets}>
             {FOCUS_PRESETS.map((p) => (
@@ -268,10 +269,9 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   background: { flex: 1 },
 
-  content: {
-    padding: 15,
-    paddingBottom: 110,
-  },
+  // Cabeçalho fixo: fica parado no topo enquanto o conteúdo rola
+  fixedHeader: { paddingHorizontal: 15, paddingTop: 15 },
+  content: { paddingHorizontal: 15, paddingTop: 4, paddingBottom: 110 },
 
   header: {
     flexDirection: "row",

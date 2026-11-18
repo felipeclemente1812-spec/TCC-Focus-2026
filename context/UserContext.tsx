@@ -5,7 +5,7 @@ import { auth } from "@/config/firebase";
 import { EMPTY_PROFILE, Profile, profileService } from "@/services/profileService";
 
 // Fonte única dos dados do usuário logado.
-// O perfil é salvo por profileService (hoje: neste aparelho; depois: users/{uid}).
+// O perfil é salvo por profileService no Firestore (users/{uid}).
 type UserType = Profile & { uid: string };
 
 type UserContextType = {
@@ -52,6 +52,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
             // O que o cadastro acabou de preencher vale mais que o vazio salvo
             name: saved?.name || base.name,
             username: saved?.username || base.username,
+            termsAcceptedAt: saved?.termsAcceptedAt ?? base.termsAcceptedAt,
+            termsVersion: saved?.termsVersion ?? base.termsVersion,
             uid,
             email: firebaseUser.email ?? saved?.email ?? base.email,
           };

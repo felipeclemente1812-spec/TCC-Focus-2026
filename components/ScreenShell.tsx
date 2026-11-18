@@ -10,10 +10,13 @@ export function ScreenShell({
   title,
   right,
   scrollRef,
+  fixed,
   children,
 }: {
   title: string;
   right?: React.ReactNode;
+  // Conteúdo que também fica parado no topo, abaixo do título (ex.: filtros)
+  fixed?: React.ReactNode;
   scrollRef?: React.RefObject<ScrollView | null>;
   children: React.ReactNode;
 }) {
@@ -21,7 +24,8 @@ export function ScreenShell({
   return (
     <View style={{ flex: 1 }}>
       <LinearGradient colors={["#6B4A91", "#43247D"]} style={{ flex: 1 }}>
-        <ScrollView keyboardDismissMode="on-drag" ref={scrollRef} contentContainerStyle={ui.content} keyboardShouldPersistTaps="handled">
+        {/* Cabeçalho fixo: não rola junto com o conteúdo */}
+        <View style={ui.fixedHeader}>
           <View style={ui.header}>
             <TouchableOpacity onPress={goBack} hitSlop={10} accessibilityRole="button" accessibilityLabel="Voltar">
               <Ionicons name="arrow-back" size={24} color="#FFF" />
@@ -32,6 +36,9 @@ export function ScreenShell({
             </Text>
             <View style={{ minWidth: 24, alignItems: "flex-end" }}>{right}</View>
           </View>
+          {fixed}
+        </View>
+        <ScrollView keyboardDismissMode="on-drag" ref={scrollRef} contentContainerStyle={ui.content} keyboardShouldPersistTaps="handled">
           {children}
         </ScrollView>
       </LinearGradient>
@@ -75,7 +82,8 @@ export const formatDay = (day: string) => {
 };
 
 export const ui = StyleSheet.create({
-  content: { padding: 15, paddingBottom: 110 },
+  fixedHeader: { paddingHorizontal: 15, paddingTop: 15 },
+  content: { paddingHorizontal: 15, paddingTop: 4, paddingBottom: 110 },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12, gap: 8 },
   title: { color: "#FFF", fontSize: 20, fontWeight: "600", flex: 1, textAlign: "center" },
 

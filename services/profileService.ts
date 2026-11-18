@@ -1,8 +1,8 @@
 // Serviço de PERFIL — 100% Firestore.
 //   users/{uid}         -> perfil (nome, @, bio, status, banner...)
 //   usernames/{handle}  -> { uid, email }  (@ único + login por @)
-// Foto e banner só são salvos quando forem link http(s) (Firebase Storage).
-// URI local fica apenas na memória da sessão.
+// Foto e banner são enviados ao Firebase Storage (services/storageService.ts) e aqui
+// só o link http(s) é salvo.
 
 import { doc, getDoc, runTransaction, setDoc, collection, getDocs, query, where, deleteDoc } from "firebase/firestore";
 
@@ -15,14 +15,17 @@ export type Profile = {
   username: string; // sem "@"
   email: string;
   bio: string;
-  avatar: string | null; // URI local da foto
+  avatar: string | null; // link da foto (Firebase Storage)
   // Personalização (estilo Steam + Discord)
-  banner: string | null; // imagem de capa (URI) — tem prioridade sobre o preset
+  banner: string | null; // link da imagem de capa (Storage) — tem prioridade sobre o preset
   bannerPreset: BannerPreset;
   status: string; // frase curta ("estudando para o ENEM")
   featuredBadges: string[]; // ids de conquistas em destaque (até 6)
   showBooks: boolean; // mostrar livros lidos/lendo para amigos
   showStats: boolean; // mostrar nível, sequência e conquistas para amigos
+  // Aceite dos Termos de Uso (constants/terms.ts)
+  termsAcceptedAt: number | null;
+  termsVersion: string | null;
 };
 
 export const EMPTY_PROFILE: Profile = {
@@ -37,6 +40,8 @@ export const EMPTY_PROFILE: Profile = {
   featuredBadges: [],
   showBooks: true,
   showStats: true,
+  termsAcceptedAt: null,
+  termsVersion: null,
 };
 
 export const BANNER_PRESETS: Record<BannerPreset, [string, string]> = {
@@ -108,6 +113,8 @@ export const firestoreProfileService: ProfileService = {
         if (Array.isArray(c.featuredBadges)) p.featuredBadges = c.featuredBadges;
         if (typeof c.showBooks === "boolean") p.showBooks = c.showBooks;
         if (typeof c.showStats === "boolean") p.showStats = c.showStats;
+        if (typeof c.termsAcceptedAt === "number") p.termsAcceptedAt = c.termsAcceptedAt;
+        if (typeof c.termsVersion === "string") p.termsVersion = c.termsVersion;
         if (isRemote(c.avatar)) p.avatar = c.avatar;
         if (isRemote(c.banner)) p.banner = c.banner;
         return p;

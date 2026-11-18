@@ -1,21 +1,35 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useContext, useState } from "react";
-import { StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
-import { ScreenShell, ui } from "@/components/ScreenShell";
 import {
-  accentOf,
-  DIARY_COLORS,
   DIARY_FONTS,
   DIARY_MIN_CHARS,
   DIARY_SIZES,
+  DIARY_THEMES,
   DiaryContext,
   DiaryFont,
   fontFamilyOf,
+  themeOf,
 } from "@/context/DiaryContext";
+import { confirmAction } from "@/utils/feedback";
 
-// Uma anotação do diário (telas new / edit / view da Angela numa rota só):
+const PAD = 14;
+
+// Folha pautada: linhas atrás do texto, no mesmo espaçamento das linhas dele
+function Lined({ lineHeight, height }: { lineHeight: number; height: number }) {
+  const count = Math.max(12, Math.ceil(height / lineHeight) + 1);
+  return (
+    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+      {Array.from({ length: count }, (_, i) => (
+        <View key={i} style={[styles.rule, { top: PAD + (i + 1) * lineHeight - 1 }]} />
+      ))}
+    </View>
+  );
+}
+
+// Uma anotação do diário (Figma do Lucas): papel colorido sobre o fundo da cor.
 //   /diary-entry                     -> nova
 //   /diary-entry?id=...&mode=edit    -> editar
 //   /diary-entry?id=...&mode=view    -> ler
@@ -25,14 +39,15 @@ export default function DiaryEntryScreen() {
   const diary = useContext(DiaryContext);
   const entry = id ? diary?.getEntry(id) : undefined;
   const viewing = mode === "view" && !!entry;
-  // Nova anotação começa com a fonte e o tamanho da última escrita
+  // Nova anotação começa com a cor, a fonte e o tamanho da última escrita
   const last = diary?.entries[0];
 
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
-  const [color, setColor] = useState(DIARY_COLORS[0].code);
+  const [color, setColor] = useState(DIARY_THEMES[0].paper);
   const [font, setFont] = useState<DiaryFont>("padrao");
   const [size, setSize] = useState(16);
+  const [textHeight, setTextHeight] = useState(0);
   const [toast, setToast] = useState("");
   const [error, setError] = useState("");
 
@@ -42,7 +57,7 @@ export default function DiaryEntryScreen() {
     useCallback(() => {
       setTitle(entry?.title ?? "");
       setContent(entry?.content ?? "");
-      setColor(entry ? accentOf(entry.color) : DIARY_COLORS[0].code);
+      setColor(themeOf(entry?.color ?? last?.color).paper);
       setFont(entry?.font ?? last?.font ?? "padrao");
       setSize(entry?.size ?? last?.size ?? 16);
       setToast("");
@@ -53,10 +68,12 @@ export default function DiaryEntryScreen() {
 
   if (!diary) return null;
 
+  const theme = themeOf(viewing ? entry.color : color);
   const goBack = () => (router.canGoBack() ? router.back() : router.replace("/diary"));
   const letters = content.replace(/\s/g, "").length;
-  const family = fontFamilyOf(font);
-  const textStyle = { fontFamily: family, fontSize: size, lineHeight: Math.round(size * 1.5) };
+  const lineHeight = Math.round((viewing ? (entry.size ?? 16) : size) * 1.6);
+  const date = new Date(entry?.createdAt ?? Date.now());
+  const weekday = date.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" }).toUpperCase();
 
   const save = () => {
     if (!title.trim() && !content.trim()) return goBack();
@@ -68,181 +85,218 @@ export default function DiaryEntryScreen() {
     setTimeout(goBack, 1200);
   };
 
+  const remove = async () => {
+    if (!entry) return;
+    if (await confirmAction("Apagar anotação?", `"${entry.title || "Sem título"}" sai do seu diário.`, "Apagar")) {
+      diary.removeEntry(entry.id);
+      router.replace("/diary");
+    }
+  };
+
+  const header = (
+    <View style={[styles.header, { backgroundColor: theme.header }]}>
+      <TouchableOpacity onPress={goBack} hitSlop={10} accessibilityLabel="Voltar">
+        <Ionicons name="chevron-back" size={22} color="#FFF" />
+      </TouchableOpacity>
+      <Text style={styles.headerTitle}>Meu diário</Text>
+      {viewing ? (
+        <View style={styles.headerActions}>
+          <TouchableOpacity onPress={() => router.setParams({ mode: "edit" })} hitSlop={10} accessibilityLabel="Editar">
+            <Ionicons name="create-outline" size={21} color="#FFF" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={remove} hitSlop={10} accessibilityLabel="Apagar">
+            <Ionicons name="trash-outline" size={20} color="#FFF" />
+          </TouchableOpacity>
+        </View>
+      ) : null}
+    </View>
+  );
+
   if (id && !entry) {
     return (
-      <ScreenShell title="Diário">
-        <View style={ui.card}>
-          <Text style={ui.muted}>Essa anotação não existe mais.</Text>
-          <TouchableOpacity onPress={() => router.replace("/diary")} style={{ marginTop: 10, alignSelf: "center" }}>
-            <Text style={ui.link}>Voltar ao diário</Text>
+      <View style={[styles.screen, { backgroundColor: theme.bg }]}>
+        {header}
+        <View style={styles.content}>
+          <Text style={styles.dateText}>Essa anotação não existe mais.</Text>
+          <TouchableOpacity onPress={() => router.replace("/diary")} style={{ marginTop: 12 }}>
+            <Text style={[styles.dateText, { textDecorationLine: "underline" }]}>Voltar ao diário</Text>
           </TouchableOpacity>
         </View>
-      </ScreenShell>
+      </View>
     );
   }
 
-  // ---------- LER ----------
-  if (viewing) {
-    const date = new Date(entry.createdAt);
-    return (
-      <ScreenShell
-        title="Diário"
-        right={
-          <TouchableOpacity onPress={() => router.setParams({ mode: "edit" })} hitSlop={10} accessibilityLabel="Editar">
-            <Ionicons name="create-outline" size={24} color="#FFF" />
-          </TouchableOpacity>
-        }
-      >
-        <View style={[ui.card, styles.paper, { borderTopColor: accentOf(entry.color) }]}>
-          <Text style={[styles.viewTitle, { fontFamily: fontFamilyOf(entry.font) }]}>{entry.title || "Sem título"}</Text>
-          <Text style={styles.meta}>
-            {date.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long", year: "numeric" })}
-            {entry.updatedAt !== entry.createdAt ? ` · editado em ${new Date(entry.updatedAt).toLocaleDateString("pt-BR")}` : ""}
-          </Text>
-          <Text
-            style={[
-              styles.body,
-              {
-                fontFamily: fontFamilyOf(entry.font),
-                fontSize: entry.size ?? 16,
-                lineHeight: Math.round((entry.size ?? 16) * 1.5),
-              },
-            ]}
-            selectable
-          >
-            {entry.content}
-          </Text>
-        </View>
-      </ScreenShell>
-    );
-  }
-
-  // ---------- ESCREVER / EDITAR ----------
   return (
-    <ScreenShell title={entry ? "Editar anotação" : "Nova anotação"}>
-      <View style={[ui.card, styles.paper, { borderTopColor: color }]}>
-        <TextInput
-          style={[styles.titleInput, { fontFamily: family }]}
-          value={title}
-          onChangeText={setTitle}
-          placeholder="Título"
-          placeholderTextColor="#9E94AB"
-          maxLength={60}
-          returnKeyType="next"
-          accessibilityLabel="Título"
-        />
-        <TextInput
-          style={[styles.body, styles.bodyInput, textStyle]}
-          value={content}
-          onChangeText={(t) => {
-            setContent(t);
-            setError("");
-          }}
-          placeholder="Como foi o seu dia? O que você sentiu?"
-          placeholderTextColor="#9E94AB"
-          multiline
-          textAlignVertical="top"
-          autoFocus={!entry}
-          accessibilityLabel="Texto do diário"
-        />
-        <Text style={[styles.meta, letters >= DIARY_MIN_CHARS && { color: "#86EFAC" }]}>
-          {letters >= DIARY_MIN_CHARS ? "Pronto para valer XP hoje." : `${letters}/${DIARY_MIN_CHARS} letras para valer XP hoje.`}
-        </Text>
-      </View>
-
-      {/* FONTE, TAMANHO E COR */}
-      <View style={ui.card}>
-        <Text style={styles.label}>
-          <Ionicons name="text-outline" /> Fonte
-        </Text>
-        <View style={ui.chips}>
-          {DIARY_FONTS.map((f) => (
-            <TouchableOpacity
-              key={f.id}
-              style={[ui.chip, font === f.id && ui.chipActive]}
-              onPress={() => setFont(f.id)}
-              accessibilityRole="radio"
-              aria-checked={font === f.id}
-            >
-              <Text style={[ui.chipText, { fontFamily: f.family }]}>{f.label}</Text>
-            </TouchableOpacity>
-          ))}
+    <View style={[styles.screen, { backgroundColor: theme.bg }]}>
+      {header}
+      <ScrollView
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.dateRow}>
+          <Text style={styles.dateText}>{weekday}</Text>
+          <Text style={styles.dateText}>{date.getFullYear()}</Text>
         </View>
 
-        <Text style={[styles.label, { marginTop: 14 }]}>
-          <Ionicons name="resize-outline" /> Tamanho da letra
-        </Text>
-        <View style={ui.chips}>
-          {DIARY_SIZES.map((s) => (
-            <TouchableOpacity
-              key={s.id}
-              style={[ui.chip, styles.sizeChip, size === s.id && ui.chipActive]}
-              onPress={() => setSize(s.id)}
-              accessibilityRole="radio"
-              aria-checked={size === s.id}
-              accessibilityLabel={`Tamanho ${s.label}`}
-            >
-              <Text style={[ui.chipText, { fontSize: Math.min(s.id, 19) }]}>A</Text>
-              <Text style={styles.sizeLabel}>{s.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+        {/* ---------- LER ---------- */}
+        {viewing ? (
+          <>
+            <View style={styles.titleBox}>
+              <Text style={[styles.titleInput, { fontFamily: fontFamilyOf(entry.font) }]}>{entry.title || "Sem título"}</Text>
+            </View>
+            <View style={[styles.paper, { backgroundColor: theme.paper }]} onLayout={(e) => setTextHeight(e.nativeEvent.layout.height)}>
+              <Lined lineHeight={lineHeight} height={textHeight} />
+              <Text
+                style={[styles.body, { fontFamily: fontFamilyOf(entry.font), fontSize: entry.size ?? 16, lineHeight }]}
+                selectable
+              >
+                {entry.content}
+              </Text>
+            </View>
+            {entry.updatedAt !== entry.createdAt ? (
+              <Text style={[styles.hint, { marginTop: 8 }]}>Editado em {new Date(entry.updatedAt).toLocaleDateString("pt-BR")}</Text>
+            ) : null}
+          </>
+        ) : (
+          /* ---------- ESCREVER / EDITAR ---------- */
+          <>
+            <View style={styles.titleBox}>
+              <TextInput
+                style={[styles.titleInput, { fontFamily: fontFamilyOf(font) }]}
+                value={title}
+                onChangeText={setTitle}
+                placeholder="Título"
+                placeholderTextColor="rgba(255,255,255,0.6)"
+                maxLength={60}
+                returnKeyType="next"
+                accessibilityLabel="Título"
+              />
+            </View>
+            <View style={[styles.paper, { backgroundColor: theme.paper }]}>
+              <Lined lineHeight={lineHeight} height={textHeight} />
+              <TextInput
+                style={[styles.body, styles.bodyInput, { fontFamily: fontFamilyOf(font), fontSize: size, lineHeight, minHeight: lineHeight * 12 }]}
+                value={content}
+                onChangeText={(t) => {
+                  setContent(t);
+                  setError("");
+                }}
+                onContentSizeChange={(e) => setTextHeight(e.nativeEvent.contentSize.height)}
+                placeholder="Como foi o seu dia? O que você sentiu?"
+                placeholderTextColor="#8A7A62"
+                multiline
+                textAlignVertical="top"
+                autoFocus={!entry}
+                accessibilityLabel="Texto do diário"
+              />
+            </View>
+            <Text style={[styles.hint, letters >= DIARY_MIN_CHARS && { color: "#BBF7D0" }]}>
+              {letters >= DIARY_MIN_CHARS ? "Pronto para valer XP hoje." : `${letters}/${DIARY_MIN_CHARS} letras para valer XP hoje.`}
+            </Text>
 
-        <Text style={[styles.label, { marginTop: 14 }]}>
-          <Ionicons name="color-palette-outline" /> Cor
-        </Text>
-        <View style={ui.chips}>
-          {DIARY_COLORS.map((c) => (
-            <TouchableOpacity
-              key={c.id}
-              style={[styles.colorDot, { backgroundColor: c.code }, color === c.code && styles.colorDotActive]}
-              onPress={() => setColor(c.code)}
-              accessibilityRole="radio"
-              aria-checked={color === c.code}
-              accessibilityLabel={`Cor ${c.id}`}
-            />
-          ))}
-        </View>
-      </View>
+            {/* COR DO PAPEL */}
+            <View style={styles.swatches}>
+              {DIARY_THEMES.map((t) => (
+                <TouchableOpacity
+                  key={t.id}
+                  style={[styles.swatch, { backgroundColor: t.paper }, color === t.paper && styles.swatchActive]}
+                  onPress={() => setColor(t.paper)}
+                  accessibilityRole="radio"
+                  aria-checked={color === t.paper}
+                  accessibilityLabel={`Papel ${t.id}`}
+                >
+                  {color === t.paper ? <Ionicons name="checkmark" size={20} color="#2B2116" /> : null}
+                </TouchableOpacity>
+              ))}
+            </View>
 
-      {error ? <Text style={ui.error}>{error}</Text> : null}
-      {toast ? (
-        <Text style={[ui.ok, { textAlign: "center" }]} accessibilityLiveRegion="polite">
-          <Ionicons name="checkmark-circle" /> {toast}
-        </Text>
-      ) : null}
+            {/* FONTE E TAMANHO DA LETRA */}
+            <View style={styles.options}>
+              <Text style={styles.optionLabel}>Fonte</Text>
+              <View style={styles.optionRow}>
+                {DIARY_FONTS.map((f) => (
+                  <TouchableOpacity
+                    key={f.id}
+                    style={[styles.option, font === f.id && { backgroundColor: theme.paper }]}
+                    onPress={() => setFont(f.id)}
+                    accessibilityRole="radio"
+                    aria-checked={font === f.id}
+                  >
+                    <Text style={[styles.optionText, { fontFamily: f.family }, font === f.id && styles.optionTextActive]}>{f.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <Text style={[styles.optionLabel, { marginTop: 10 }]}>Tamanho da letra</Text>
+              <View style={styles.optionRow}>
+                {DIARY_SIZES.map((s) => (
+                  <TouchableOpacity
+                    key={s.id}
+                    style={[styles.option, styles.sizeOption, size === s.id && { backgroundColor: theme.paper }]}
+                    onPress={() => setSize(s.id)}
+                    accessibilityRole="radio"
+                    aria-checked={size === s.id}
+                    accessibilityLabel={`Tamanho ${s.label}`}
+                  >
+                    <Text style={[styles.optionText, { fontSize: Math.min(s.id, 19) }, size === s.id && styles.optionTextActive]}>A</Text>
+                    <Text style={[styles.optionText, { fontSize: 11 }, size === s.id && styles.optionTextActive]}>{s.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
 
-      <View style={[ui.row, { marginTop: 4 }]}>
-        <TouchableOpacity style={[styles.button, styles.cancel]} onPress={goBack} accessibilityRole="button">
-          <Text style={ui.primaryText}>Cancelar</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.button, { backgroundColor: "#7C3AED" }]} onPress={save} accessibilityRole="button">
-          <Text style={ui.primaryText}>
-            <Ionicons name="save-outline" /> Salvar
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </ScreenShell>
+            {error ? <Text style={styles.error}>{error}</Text> : null}
+            {toast ? (
+              <Text style={styles.toast} accessibilityLiveRegion="polite">
+                <Ionicons name="checkmark-circle" /> {toast}
+              </Text>
+            ) : null}
+
+            <View style={styles.buttons}>
+              <TouchableOpacity style={[styles.button, { backgroundColor: theme.header }]} onPress={goBack} accessibilityRole="button">
+                <Text style={styles.cancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.button, { backgroundColor: theme.paper }]} onPress={save} accessibilityRole="button">
+                <Text style={styles.saveText}>Salvar anotação</Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  paper: { borderTopWidth: 4 },
-  titleInput: { color: "#FFF", fontSize: 18, fontWeight: "600", paddingVertical: 6 },
-  viewTitle: { color: "#FFF", fontSize: 20, fontWeight: "700" },
-  meta: { color: "#9E94AB", fontSize: 12, marginTop: 6, textTransform: "none" },
-  body: { color: "#F3EEFF", marginTop: 12 },
-  bodyInput: {
-    minHeight: 220,
-    backgroundColor: "rgba(255,255,255,0.05)",
-    borderRadius: 10,
-    padding: 12,
-  },
-  label: { color: "#FFF", fontSize: 13, fontWeight: "600" },
-  sizeChip: { flexDirection: "row", alignItems: "baseline", gap: 4, minWidth: 52, justifyContent: "center" },
-  sizeLabel: { color: "#C7BADB", fontSize: 11 },
-  colorDot: { width: 32, height: 32, borderRadius: 16, borderWidth: 2, borderColor: "transparent" },
-  colorDotActive: { borderColor: "#FFF" },
-  button: { flex: 1, borderRadius: 10, paddingVertical: 13, alignItems: "center", minHeight: 46 },
-  cancel: { borderWidth: 1, borderColor: "#A78BFA" },
+  screen: { flex: 1 },
+  header: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16, paddingVertical: 14 },
+  headerTitle: { color: "#FFF", fontSize: 17, fontWeight: "700", flex: 1 },
+  headerActions: { flexDirection: "row", gap: 18 },
+  content: { padding: 16, paddingBottom: 120 },
+  dateRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 10 },
+  dateText: { color: "rgba(255,255,255,0.85)", fontSize: 11, fontWeight: "700", letterSpacing: 0.6 },
+  titleBox: { backgroundColor: "rgba(0,0,0,0.22)", borderRadius: 8, paddingHorizontal: 12, minHeight: 46, justifyContent: "center", marginBottom: 12 },
+  titleInput: { color: "#FFF", fontSize: 17, fontWeight: "700", paddingVertical: 10 },
+  paper: { borderRadius: 8, padding: PAD, overflow: "hidden" },
+  rule: { position: "absolute", left: PAD, right: PAD, height: 1, backgroundColor: "rgba(60,45,25,0.14)" },
+  body: { color: "#2B2116" },
+  bodyInput: { padding: 0 },
+  hint: { color: "rgba(255,255,255,0.85)", fontSize: 12, marginTop: 8 },
+  swatches: { flexDirection: "row", justifyContent: "center", gap: 14, marginTop: 16 },
+  swatch: { width: 40, height: 40, borderRadius: 8, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: "transparent" },
+  swatchActive: { borderColor: "#FFF" },
+  options: { backgroundColor: "rgba(0,0,0,0.18)", borderRadius: 10, padding: 12, marginTop: 16 },
+  optionLabel: { color: "#FFF", fontSize: 12, fontWeight: "700", marginBottom: 6 },
+  optionRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  option: { borderRadius: 8, paddingHorizontal: 12, minHeight: 36, justifyContent: "center", borderWidth: 1, borderColor: "rgba(255,255,255,0.35)" },
+  sizeOption: { flexDirection: "row", alignItems: "baseline", gap: 4, minWidth: 52 },
+  optionText: { color: "#FFF", fontSize: 13 },
+  optionTextActive: { color: "#2B2116", fontWeight: "700" },
+  error: { color: "#FECACA", fontSize: 13, marginTop: 12, textAlign: "center" },
+  toast: { color: "#BBF7D0", fontSize: 13, marginTop: 12, textAlign: "center", fontWeight: "600" },
+  buttons: { flexDirection: "row", gap: 12, marginTop: 16 },
+  button: { flex: 1, borderRadius: 10, minHeight: 48, alignItems: "center", justifyContent: "center" },
+  cancelText: { color: "#FFF", fontSize: 14, fontWeight: "700" },
+  saveText: { color: "#2B2116", fontSize: 14, fontWeight: "700" },
 });

@@ -55,16 +55,22 @@ export default function Progress() {
         colors={["#6B4A91", "#43247D"]}
         style={styles.background}
       >
-        <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={styles.content}>
+        {/* Cabeçalho fixo */}
+        <View style={styles.fixedHeader}>
           <TouchableOpacity
             onPress={() =>
               router.canGoBack() ? router.back() : router.replace("/challenges")
             }
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel="Voltar"
           >
             <Ionicons name="arrow-back" style={styles.back} />
           </TouchableOpacity>
 
           <Text style={styles.title}>Meu progresso</Text>
+        </View>
+        <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={styles.content}>
 
           <View style={styles.levelCard}>
             <Text style={styles.level}>Nível {level}</Text>
@@ -262,8 +268,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
+  fixedHeader: { paddingHorizontal: 15, paddingTop: 15 },
+
   content: {
-    padding: 15,
+    paddingHorizontal: 15,
+    paddingTop: 4,
     paddingBottom: 110,
   },
 

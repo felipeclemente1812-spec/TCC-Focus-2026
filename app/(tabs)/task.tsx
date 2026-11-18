@@ -1,7 +1,4 @@
 import { Ionicons } from "@expo/vector-icons";
-import * as DocumentPicker from "expo-document-picker";
-import { Image } from "expo-image";
-import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useContext, useEffect, useRef, useState } from "react";
@@ -33,9 +30,11 @@ import { DAY_SHORT, WEEK_ORDER } from "@/context/HabitsContext";
 import { AlarmCard, StepsCard } from "@/components/DeviceModules";
 import { QuickSave, SavedChart, WeekMiniChart } from "@/components/FinanceWidgets";
 import { PlannerModule } from "@/components/PlannerModules";
+import { ZoomablePhoto } from "@/components/PhotoViewer";
 import { RoutineContext } from "@/context/RoutineContext";
 import { confirmAction } from "@/utils/feedback";
 import { openDoNotDisturb } from "@/utils/focusMode";
+import { pickDocument, pickImage } from "@/utils/files";
 import {
   Attachment,
   Entry,
@@ -211,7 +210,7 @@ function Screen({
   return (
     <View style={styles.container}>
       <LinearGradient colors={["#6B4A91", "#43247D"]} style={styles.background}>
-        <ScrollView keyboardDismissMode="on-drag" ref={scrollRef} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <View style={styles.fixedHeader}>
           <View style={styles.header}>
             <TouchableOpacity onPress={onBack} hitSlop={10} accessibilityRole="button" accessibilityLabel="Voltar">
               <Ionicons name="arrow-back" style={styles.back} />
@@ -221,6 +220,8 @@ function Screen({
             </Text>
             <View style={{ width: 25 }} />
           </View>
+        </View>
+        <ScrollView keyboardDismissMode="on-drag" ref={scrollRef} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           {children}
         </ScrollView>
       </LinearGradient>
@@ -1282,10 +1283,14 @@ function BacklogCard() {
       <View style={styles.chips}>
         <TextInput
           value={due}
-          onChangeText={setDue}
+          onChangeText={(t) => {
+            const d = t.replace(/\D/g, "").slice(0, 4);
+            setDue(d.length > 2 ? `${d.slice(0, 2)}/${d.slice(2)}` : d);
+          }}
           placeholder="Prazo dd/mm (opcional)"
           placeholderTextColor="#9E94AB"
           style={[styles.input, { flex: 1, marginBottom: 0 }]}
+          keyboardType="number-pad"
           maxLength={5}
         />
         <TouchableOpacity style={styles.smallButton} onPress={add}>
@@ -1654,30 +1659,10 @@ function AttachmentsCard({ taskId, accept }: { taskId: string; accept: "image" |
   const pick = async () => {
     setError("");
     try {
-      if (accept === "image") {
-        const result = await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ["images"],
-          quality: 0.4,
-          base64: Platform.OS === "web",
-        });
-        if (result.canceled || !result.assets[0]) return;
-        const asset = result.assets[0];
-        const uri = Platform.OS === "web" && asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri;
-        setError(extras.addAttachment(taskId, uri, asset.fileName ?? "desenho", "image") ?? "");
-      } else {
-        const result = await DocumentPicker.getDocumentAsync({
-          type: [
-            "application/pdf",
-            "application/msword",
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            "text/plain",
-          ],
-          copyToCacheDirectory: true,
-        });
-        if (result.canceled || !result.assets[0]) return;
-        const asset = result.assets[0];
-        setError(extras.addAttachment(taskId, asset.uri, asset.name, "document") ?? "");
-      }
+      // O arquivo é enviado ao Firebase Storage e o anexo guarda o link
+      const file = accept === "image" ? await pickImage("anexos") : await pickDocument();
+      if (!file) return;
+      setError(extras.addAttachment(taskId, file.uri, file.name, file.kind) ?? "");
     } catch {
       setError("Não foi possível abrir o arquivo.");
     }
@@ -1700,7 +1685,7 @@ function AttachmentsCard({ taskId, accept }: { taskId: string; accept: "image" |
         <View style={styles.gallery}>
           {list.map((a) => (
             <View key={a.id} style={styles.galleryItem}>
-              <Image source={{ uri: a.uri }} style={styles.galleryImage} contentFit="cover" />
+              <ZoomablePhoto uri={a.uri} style={styles.galleryImage} label={a.name} />
               <Text style={styles.entryDate}>{formatDateTime(a.at)}</Text>
               <TouchableOpacity onPress={() => askRemove("Remover anexo?", () => extras.removeAttachment(a.id))} hitSlop={8} accessibilityLabel="Remover imagem">
                 <Ionicons name="close" style={styles.remove} />
@@ -1723,9 +1708,6 @@ function AttachmentsCard({ taskId, accept }: { taskId: string; accept: "image" |
           </View>
         ))
       )}
-      {accept === "document" && Platform.OS === "web" ? (
-        <Text style={styles.hint}>No navegador o documento só abre até recarregar a página; no celular fica salvo.</Text>
-      ) : null}
     </View>
   );
 }
@@ -1733,7 +1715,9 @@ function AttachmentsCard({ taskId, accept }: { taskId: string; accept: "image" |
 const styles = StyleSheet.create({
   container: { flex: 1 },
   background: { flex: 1 },
-  content: { padding: 15, paddingBottom: 110 },
+  // Cabeçalho fixo: fica parado no topo enquanto o conteúdo rola
+  fixedHeader: { paddingHorizontal: 15, paddingTop: 15 },
+  content: { paddingHorizontal: 15, paddingTop: 4, paddingBottom: 110 },
 
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12, gap: 8 },
   back: { color: "#FFF", fontSize: 25 },
@@ -1911,7 +1895,7 @@ const styles = StyleSheet.create({
 
   gallery: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 10 },
   galleryItem: { width: 96, alignItems: "flex-start" },
-  galleryImage: { width: 96, height: 96, borderRadius: 8, backgroundColor: "#57356F" },
+  galleryImage: { width: 140, height: 140, borderRadius: 10, backgroundColor: "#57356F" },
   diaryRow: { flexDirection: "row", alignItems: "center", gap: 8, borderRadius: 8, borderLeftWidth: 4, backgroundColor: "rgba(255,255,255,0.06)", paddingHorizontal: 10, paddingVertical: 9, marginTop: 8 },
   diaryTitle: { flex: 1, color: "#FFF", fontSize: 14, fontWeight: "600" },
   diaryDate: { color: "#9E94AB", fontSize: 11 },

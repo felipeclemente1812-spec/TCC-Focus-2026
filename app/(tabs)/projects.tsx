@@ -1,9 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Image } from "expo-image";
 import { useLocalSearchParams } from "expo-router";
 import { useContext, useState } from "react";
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
+import { ZoomablePhoto } from "@/components/PhotoViewer";
 import { CardTitle, formatDay, maskDate, ScreenShell, ui } from "@/components/ScreenShell";
 import { dayKey } from "@/constants/gamification";
 import {
@@ -17,13 +17,15 @@ import {
 import { confirmAction } from "@/utils/feedback";
 import { openFile, pickDocument, pickImage, shareContent } from "@/utils/files";
 
-const KINDS: ProjectKind[] = ["curso", "projeto", "criacao", "aprender"];
+const KINDS: ProjectKind[] = ["curso", "projeto"];
 type Filter = ProjectKind | "todos";
+// Dentro de "Projeto": todos ou só as criações
+type Sub = "todos" | "criacoes" | "outros";
 
 // Cada categoria tem cor, ícone e textos próprios: ao trocar de categoria,
 // o topo, os cartões e os campos mudam junto.
 const THEME: Record<
-  Filter,
+  Filter | "criacao",
   {
     color: string;
     icon: keyof typeof Ionicons.glyphMap;
@@ -61,6 +63,7 @@ const THEME: Record<
     noteButton: "Registrar avanço",
     empty: "Nenhum projeto ainda. Comece pelo que precisa entregar.",
   },
+  // Projeto marcado como criação (cor e textos próprios no cartão)
   criacao: {
     color: "#EC4899",
     icon: "color-palette-outline",
@@ -70,27 +73,21 @@ const THEME: Record<
     noteButton: "Registrar sessão",
     empty: "Nenhuma criação ainda. Que tal começar uma obra?",
   },
-  aprender: {
-    color: "#15A638",
-    icon: "bulb-outline",
-    tagline: "Um idioma, um instrumento, uma habilidade nova. Anote o que aprendeu.",
-    namePlaceholder: "O que quer aprender? (ex.: Violão)",
-    notePlaceholder: "O que você aprendeu hoje?",
-    noteButton: "Registrar o que aprendeu",
-    empty: "Nada para aprender ainda. Escolha algo novo!",
-  },
 };
 
-// Área de desenvolvimento pessoal: cursos, projetos, criações e "aprender algo
-// novo" num só lugar, com prazo, diário de progresso e anexos. Concluir exige
+// Área de desenvolvimento pessoal: cursos e projetos (com as criações separadas
+// dentro de Projeto) num só lugar, com prazo, diário de progresso e anexos. Concluir exige
 // progresso em dias diferentes.
 export default function Projects() {
   const { kind: kindParam } = useLocalSearchParams<{ kind?: string }>();
   const planner = useContext(PlannerContext);
-  const paramKind = KINDS.includes(kindParam as ProjectKind) ? (kindParam as ProjectKind) : null;
+  // "criacao" (desafio "Terminar uma criação") abre Projeto já em Criações
+  const paramKind = kindParam === "criacao" ? "projeto" : KINDS.includes(kindParam as ProjectKind) ? (kindParam as ProjectKind) : null;
   const [filter, setFilter] = useState<Filter>(paramKind ?? "todos");
+  const [sub, setSub] = useState<Sub>(kindParam === "criacao" ? "criacoes" : "todos");
   const [showForm, setShowForm] = useState(false);
   const [kind, setKind] = useState<ProjectKind>(paramKind ?? "projeto");
+  const [creation, setCreation] = useState(kindParam === "criacao");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [deadline, setDeadline] = useState("");
@@ -99,9 +96,13 @@ export default function Projects() {
 
   if (!planner) return null;
 
-  const theme = THEME[filter];
-  const formTheme = THEME[kind];
-  const list = planner.projects.filter((p) => filter === "todos" || p.kind === filter);
+  const showingCreations = filter === "projeto" && sub === "criacoes";
+  const theme = THEME[showingCreations ? "criacao" : filter];
+  const formTheme = THEME[kind === "projeto" && creation ? "criacao" : kind];
+  const list = planner.projects
+    .filter((p) => filter === "todos" || p.kind === filter)
+    .filter((p) => filter !== "projeto" || sub === "todos" || (sub === "criacoes") === !!p.creation);
+  const creations = planner.projects.filter((p) => p.creation).length;
   const ongoing = list.filter((p) => !p.doneAt).length;
   const done = list.length - ongoing;
   const toDay = (t: string) => {
@@ -118,6 +119,7 @@ export default function Projects() {
     if (deadline && !toDay(deadline)) return setError("Prazo no formato dd/mm/aa.");
     const err = planner.saveProject({
       kind,
+      creation: kind === "projeto" && creation,
       title,
       description: description.trim(),
       start: dayKey(),
@@ -132,18 +134,15 @@ export default function Projects() {
       setHours("");
       setShowForm(false);
       if (filter !== "todos" && filter !== kind) setFilter(kind);
+      if (kind === "projeto" && sub !== "todos") setSub(creation ? "criacoes" : "outros");
     }
   };
 
   return (
     <ScreenShell
       title="Área de desenvolvimento pessoal"
-      right={
-        <TouchableOpacity onPress={() => setShowForm(!showForm)} hitSlop={10} accessibilityLabel="Novo">
-          <Ionicons name={showForm ? "close" : "add-circle-outline"} size={26} color="#FFF" />
-        </TouchableOpacity>
-      }
-    >
+      fixed={
+        <>
       <View style={[ui.chips, { marginTop: 0, marginBottom: 12 }]}>
         {(["todos", ...KINDS] as const).map((k) => (
           <TouchableOpacity
@@ -158,6 +157,38 @@ export default function Projects() {
           </TouchableOpacity>
         ))}
       </View>
+        </>
+      }
+      right={
+        <TouchableOpacity onPress={() => setShowForm(!showForm)} hitSlop={10} accessibilityLabel="Novo">
+          <Ionicons name={showForm ? "close" : "add-circle-outline"} size={26} color="#FFF" />
+        </TouchableOpacity>
+      }
+    >
+      {/* PROJETO: separar as criações */}
+      {filter === "projeto" ? (
+        <View style={styles.subTabs}>
+          {(
+            [
+              ["todos", "Todos os projetos"],
+              ["criacoes", `Criações (${creations})`],
+              ["outros", "Outros projetos"],
+            ] as const
+          ).map(([id, label]) => (
+            <TouchableOpacity
+              key={id}
+              style={[styles.subTab, sub === id && { backgroundColor: id === "criacoes" ? THEME.criacao.color : THEME.projeto.color }]}
+              onPress={() => setSub(id)}
+              accessibilityRole="tab"
+              aria-selected={sub === id}
+            >
+              <Text style={styles.subTabText} numberOfLines={1}>
+                {label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      ) : null}
 
       {/* TOPO DA CATEGORIA */}
       <View style={[styles.hero, { borderColor: theme.color, backgroundColor: `${theme.color}26` }]}>
@@ -165,7 +196,7 @@ export default function Projects() {
           <Ionicons name={theme.icon} size={26} color="#FFF" />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={styles.heroTitle}>{filter === "todos" ? "Tudo" : KIND_LABEL[filter]}</Text>
+          <Text style={styles.heroTitle}>{filter === "todos" ? "Tudo" : showingCreations ? "Criações" : KIND_LABEL[filter]}</Text>
           <Text style={styles.heroText}>{theme.tagline}</Text>
           <View style={styles.heroStats}>
             <Text style={styles.heroStat}>{ongoing} em andamento</Text>
@@ -176,7 +207,7 @@ export default function Projects() {
 
       {showForm ? (
         <View style={[ui.card, styles.formCard, { borderColor: formTheme.color }]}>
-          <CardTitle icon={formTheme.icon}>Novo · {KIND_LABEL[kind]}</CardTitle>
+          <CardTitle icon={formTheme.icon}>Novo · {kind === "projeto" && creation ? "Criação" : KIND_LABEL[kind]}</CardTitle>
           <View style={ui.chips}>
             {KINDS.map((k) => (
               <TouchableOpacity
@@ -188,6 +219,17 @@ export default function Projects() {
               </TouchableOpacity>
             ))}
           </View>
+          {kind === "projeto" ? (
+            <TouchableOpacity
+              style={[ui.chipSmall, styles.filterChip, { alignSelf: "flex-start" }, creation && { backgroundColor: THEME.criacao.color, borderColor: THEME.criacao.color }]}
+              onPress={() => setCreation(!creation)}
+              accessibilityRole="checkbox"
+              aria-checked={creation}
+            >
+              <Ionicons name={creation ? "checkbox" : "square-outline"} size={14} color="#FFF" />
+              <Text style={ui.chipText}>É uma criação (desenho, música, texto…)</Text>
+            </TouchableOpacity>
+          ) : null}
           <TextInput style={ui.input} value={title} onChangeText={setTitle} placeholder={formTheme.namePlaceholder} placeholderTextColor="#9E94AB" />
           <TextInput style={[ui.input, { minHeight: 60 }]} value={description} onChangeText={setDescription} multiline placeholder="Meta / descrição (o que é ‘terminado’?)" placeholderTextColor="#9E94AB" />
           <View style={ui.row}>
@@ -236,13 +278,13 @@ export default function Projects() {
 
 function ProjectCard({ project: p }: { project: Project }) {
   const planner = useContext(PlannerContext)!;
-  const theme = THEME[p.kind];
+  const theme = THEME[p.creation ? "criacao" : p.kind];
   const [open, setOpen] = useState(false);
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
   const days = projectProgressDays(p);
   const late = !p.doneAt && p.deadline && p.deadline < dayKey();
-  const cover = p.kind === "criacao" ? p.files.find((f) => f.kind === "image") : undefined;
+  const cover = p.creation ? p.files.find((f) => f.kind === "image") : undefined;
 
   const addNote = () => {
     const err = planner.addProjectNote(p.id, note);
@@ -259,7 +301,7 @@ function ProjectCard({ project: p }: { project: Project }) {
 
   return (
     <View style={[ui.card, styles.projectCard, { borderLeftColor: theme.color }]}>
-      {cover ? <Image source={{ uri: cover.uri }} style={styles.cover} contentFit="cover" /> : null}
+      {cover ? <ZoomablePhoto uri={cover.uri} style={styles.cover} label={`Capa de ${p.title}`} /> : null}
       <View style={ui.rowBetween}>
         <TouchableOpacity onPress={() => setOpen(!open)} style={[ui.row, { flex: 1 }]} accessibilityRole="button" aria-expanded={open}>
           <View style={[styles.kindBadge, { backgroundColor: theme.color }]}>
@@ -268,7 +310,7 @@ function ProjectCard({ project: p }: { project: Project }) {
           <View style={{ flex: 1 }}>
             <Text style={ui.cardTitle}>{p.title}</Text>
             <Text style={ui.listSub}>
-              {KIND_LABEL[p.kind]} · início {formatDay(p.start)}
+              {p.creation ? "Criação" : KIND_LABEL[p.kind]} · início {formatDay(p.start)}
               {p.deadline ? ` · prazo ${formatDay(p.deadline)}` : ""}
               {p.hours ? ` · ${p.hours} h` : ""}
             </Text>
@@ -305,10 +347,10 @@ function ProjectCard({ project: p }: { project: Project }) {
                 <TouchableOpacity style={[ui.chip, { backgroundColor: theme.color, borderColor: theme.color }]} onPress={addNote}>
                   <Text style={ui.chipText}>{theme.noteButton}</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={ui.chip} onPress={async () => { const f = await pickImage(); if (f) planner.addProjectFile(p.id, f); }}>
+                <TouchableOpacity style={ui.chip} onPress={async () => { const f = await pickImage("projetos"); if (f) planner.addProjectFile(p.id, f); }}>
                   <Text style={ui.chipText}><Ionicons name="image-outline" /> Foto</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={ui.chip} onPress={async () => { const f = await pickDocument(); if (f) planner.addProjectFile(p.id, f); }}>
+                <TouchableOpacity style={ui.chip} onPress={async () => { const f = await pickDocument(undefined, "projetos"); if (f) planner.addProjectFile(p.id, f); }}>
                   <Text style={ui.chipText}><Ionicons name="document-outline" /> PDF/Word</Text>
                 </TouchableOpacity>
               </View>
@@ -320,9 +362,13 @@ function ProjectCard({ project: p }: { project: Project }) {
           <View style={ui.chips}>
             {p.files.map((f) =>
               f.kind === "image" ? (
-                <TouchableOpacity key={f.uri} onPress={() => openFile(f.uri)} onLongPress={() => planner.removeProjectFile(p.id, f.uri)}>
-                  <Image source={{ uri: f.uri }} style={{ width: 64, height: 64, borderRadius: 8 }} />
-                </TouchableOpacity>
+                <ZoomablePhoto
+                  key={f.uri}
+                  uri={f.uri}
+                  style={{ width: 104, height: 104, borderRadius: 8 }}
+                  label={f.name}
+                  onLongPress={() => planner.removeProjectFile(p.id, f.uri)}
+                />
               ) : (
                 <TouchableOpacity key={f.uri} style={ui.chipSmall} onPress={() => openFile(f.uri)} onLongPress={() => planner.removeProjectFile(p.id, f.uri)}>
                   <Text style={ui.chipText} numberOfLines={1}>{f.name}</Text>
@@ -375,10 +421,13 @@ const styles = StyleSheet.create({
   heroStats: { flexDirection: "row", gap: 12, marginTop: 6 },
   heroStat: { color: "#FFF", fontSize: 12, fontWeight: "600" },
   formCard: { borderWidth: 1 },
+  subTabs: { flexDirection: "row", gap: 6, marginBottom: 12, backgroundColor: "rgba(0,0,0,0.18)", borderRadius: 10, padding: 4 },
+  subTab: { flex: 1, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 4, alignItems: "center" },
+  subTabText: { color: "#FFF", fontSize: 12, fontWeight: "600" },
   section: { marginBottom: 4 },
   sectionHeader: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 },
   sectionTitle: { color: "#FFF", fontSize: 15, fontWeight: "700", flex: 1 },
   projectCard: { borderLeftWidth: 4 },
   kindBadge: { width: 30, height: 30, borderRadius: 15, alignItems: "center", justifyContent: "center" },
-  cover: { height: 110, borderRadius: 8, marginBottom: 10 },
+  cover: { width: "100%", height: 180, borderRadius: 8, marginBottom: 10 },
 });

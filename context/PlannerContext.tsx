@@ -14,7 +14,7 @@ import { loadJSON, saveJSON } from "@/utils/localStore";
 // "prova" (foto ou anotação) para as que não têm como medir.
 // Também guarda as METAS PRÓPRIAS semanais/mensais (com check-in por dia).
 // O XP sai da rotina (RoutineContext -> XPContext); metas próprias valem metade.
-// Salvo LOCALMENTE por usuário — formato pronto para virar documentos no Firebase
+// Salvo na nuvem (Firestore), por usuário. Anexos ficam no Firebase Storage (só o link é guardado).
 // (cada lista vira uma subcoleção users/{uid}/<lista>).
 
 export type FileRef = { uri: string; name: string; kind: "image" | "document" };
@@ -38,11 +38,14 @@ export type Hobby = { id: string; name: string };
 export type HobbyLog = { id: string; hobbyId: string; minutes: number; note: string; day: string; at: number };
 export type GoalCard = { id: string; title: string; why: string; month: string | null; createdAt: number };
 export type GoalReview = { cardId: string; period: string; status: "ok" | "ajustar" };
-export type ProjectKind = "curso" | "projeto" | "criacao" | "aprender";
+// "Criação" e "Aprender algo novo" saíram (pedido do grupo): criação virou um
+// tipo de projeto (creation) e "aprender" virou curso
+export type ProjectKind = "curso" | "projeto";
 export type ProjectNote = { id: string; text: string; day: string; at: number };
 export type Project = {
   id: string;
   kind: ProjectKind;
+  creation?: boolean; // projeto que é uma criação (desenho, música, texto...)
   title: string;
   description: string;
   start: string; // AAAA-MM-DD
@@ -135,6 +138,14 @@ const EMPTY: Saved = {
 
 const key = (uid: string) => `focus:v1:${uid}:planejador`;
 const isSaved = (v: unknown): v is Partial<Saved> => !!v && typeof v === "object" && !Array.isArray(v);
+
+// Projetos salvos antes da mudança: "criacao" vira projeto-criação e "aprender" vira curso
+const migrateProject = (p: Project): Project => {
+  const old = p.kind as string;
+  if (old === "criacao") return { ...p, kind: "projeto", creation: true };
+  if (old === "aprender") return { ...p, kind: "curso" };
+  return p;
+};
 const newId = (p: string) => `${p}${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 
 // ---------- Regras de verificação (puras) ----------
@@ -186,15 +197,11 @@ export const PLAN_SLOTS = ["Manhã", "Tarde", "Noite"];
 export const KIND_LABEL: Record<ProjectKind, string> = {
   curso: "Curso",
   projeto: "Projeto",
-  criacao: "Criação",
-  aprender: "Aprender algo novo",
 };
 // Desafio que cada tipo de projeto cumpre
 export const PROJECT_TASK: Record<ProjectKind, string> = {
   curso: "mes-est-curso",
   projeto: "mes-pro-projeto",
-  criacao: "mes-cri-obra",
-  aprender: "mes-cri-curso",
 };
 // Concluir um projeto pelo app exige progresso real em dias diferentes
 export const PROJECT_MIN_DAYS = 3;
@@ -330,7 +337,7 @@ export function PlannerProvider({ uid, children }: { uid: string; children: Reac
     loadJSON(key(uid), isSaved).then((saved) => {
       if (!active) return;
       if (saved) {
-        ref.current = { ...EMPTY, ...saved };
+        ref.current = { ...EMPTY, ...saved, projects: (saved.projects ?? []).map(migrateProject) };
         setData(ref.current);
       }
       setReady(true);
@@ -611,7 +618,7 @@ export function PlannerProvider({ uid, children }: { uid: string; children: Reac
     // Semanais: avançar um projeto / aprender algo novo
     const project = ref.current.projects.find((p) => p.id === id);
     complete("cri-projeto");
-    if (project?.kind === "aprender") complete("cri-novo");
+    if (project?.kind === "curso") complete("cri-novo");
     return null;
   };
   const removeProjectNote = (id: string, noteId: string) =>
@@ -628,6 +635,8 @@ export function PlannerProvider({ uid, children }: { uid: string; children: Reac
     }
     update((d) => ({ ...d, projects: d.projects.map((p) => (p.id === id ? { ...p, doneAt: Date.now() } : p)) }));
     complete(PROJECT_TASK[project.kind]);
+    if (project.creation) complete("mes-cri-obra");
+    if (project.kind === "curso") complete("mes-cri-curso");
     return null;
   };
 
@@ -726,9 +735,8 @@ export function PlannerProvider({ uid, children }: { uid: string; children: Reac
 
   const addProof = (taskId: string, text: string, file: FileRef | null) => {
     const clean = text.trim();
-    if (clean.length < PROOF_MIN_CHARS && !file) {
-      return `Conte como foi (${PROOF_MIN_CHARS}+ letras) ou anexe uma foto.`;
-    }
+    // Semanal/mensal com comprovante: só conclui com foto ou documento (o texto é opcional)
+    if (!file) return "Anexe uma foto ou um documento para concluir.";
     update((d) => ({
       ...d,
       proofs: [{ id: newId("pf"), taskId, period: periodFor(taskId), text: clean.slice(0, 500), file, at: Date.now() }, ...d.proofs],

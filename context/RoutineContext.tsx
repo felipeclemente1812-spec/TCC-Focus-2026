@@ -24,7 +24,7 @@ export type { Frequency } from "@/constants/challenges";
 
 // Rotina (ciclo de tarefas): o usuário escolhe desafios do catálogo
 // e eles reiniciam sozinhos a cada dia, semana ou mês.
-// Salva LOCALMENTE neste aparelho, por usuário; ao existir backend, ir para a conta.
+// Salvo na nuvem (Firestore: users/{uid}/data/...), por usuário — via utils/localStore.
 
 export type RoutineTask = CatalogChallenge & { xp: number; customized: boolean };
 

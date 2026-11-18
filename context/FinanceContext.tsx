@@ -8,7 +8,7 @@ import { loadJSON, saveJSON } from "@/utils/localStore";
 // Finanças (funções do Squill dentro do Focus): despesas e receitas,
 // cofrinhos com depósitos, limite de gastos do mês e meta de economia.
 // Ações que cumprem desafios da rotina concluem por ela (mesmo XP do app).
-// Salvo LOCALMENTE neste aparelho, por usuário.
+// Salvo na nuvem (Firestore: users/{uid}/data/...), por usuário — via utils/localStore.
 
 export type Transaction = {
   id: string;

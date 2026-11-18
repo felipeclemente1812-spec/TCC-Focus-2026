@@ -14,6 +14,7 @@ import {
 
 import { QuickSave } from "@/components/FinanceWidgets";
 import PostComposer from "@/components/PostComposer";
+import { ZoomablePhoto } from "@/components/PhotoViewer";
 import { formatDay, maskDate, maskTime, parseDate } from "@/components/ScreenShell";
 import { formatMoney } from "@/constants/finance";
 import UserAvatar from "@/components/UserAvatar";
@@ -32,10 +33,11 @@ import {
   savingsRanking,
   settingsOf,
   TaskRule,
+  taskPeriod,
   taskXp,
 } from "@/services/groupsService";
 import { confirmAction } from "@/utils/feedback";
-import { pickImage } from "@/utils/files";
+import { pickImage, takePhoto } from "@/utils/files";
 
 type Section = "tarefas" | "encontros" | "ranking" | "mural" | "membros";
 
@@ -48,7 +50,8 @@ const SECTIONS: { key: Section; label: string }[] = [
 ];
 
 const FREQUENCIES: Frequency[] = ["daily", "weekly", "monthly"];
-const RULES: TaskRule[] = ["livre", "prova", "aprovacao"];
+// O ADM escolhe a prova: só contar o que fez, foto, ou foto + aprovação
+const RULES: TaskRule[] = ["texto", "prova", "aprovacao"];
 const MEDAL_COLORS = ["#FCD34D", "#D1D5DB", "#D97706"];
 
 export default function GroupScreen() {
@@ -59,10 +62,11 @@ export default function GroupScreen() {
   const [section, setSection] = useState<Section>("tarefas");
   const [taskTitle, setTaskTitle] = useState("");
   const [taskFrequency, setTaskFrequency] = useState<Frequency>("daily");
-  const [taskRule, setTaskRule] = useState<TaskRule>("livre");
+  const [taskRule, setTaskRule] = useState<TaskRule>("prova");
   const [inviteHandle, setInviteHandle] = useState("");
   const [proofFor, setProofFor] = useState<string | null>(null);
   const [proofText, setProofText] = useState("");
+  const [proofPhoto, setProofPhoto] = useState<string | null>(null);
   const [eventTitle, setEventTitle] = useState("");
   const [eventDate, setEventDate] = useState("");
   const [eventTime, setEventTime] = useState("");
@@ -92,7 +96,6 @@ export default function GroupScreen() {
     addPost,
     deleteGroup,
     leaveGroup,
-    removeDemoMembers,
     reviewCompletion,
     setAdmin,
     removeMember,
@@ -144,25 +147,30 @@ export default function GroupScreen() {
     setMessage({ text: "Tarefa criada para todos do grupo.", error: false });
   };
 
-  const handleComplete = (taskId: string, proof = "") => {
-    const task = group.tasks.find((t) => t.id === taskId);
-    // Regra com prova: abre o campo antes de concluir
-    if (task && (task.rule ?? "livre") !== "livre" && proofFor !== taskId) {
-      setProofFor(taskId);
+  // Toque no quadrado abre a prova; "Enviar" conclui com a foto tirada
+  const handleComplete = (taskId: string, send = false) => {
+    if (!send) {
+      setProofFor(proofFor === taskId ? null : taskId);
       setProofText("");
+      setProofPhoto(null);
       return;
     }
-    const result = completeTask(group.id, taskId, proof);
+    const result = completeTask(group.id, taskId, proofPhoto, proofText);
     if (result.error) {
       setMessage({ text: result.error, error: true });
       return;
     }
     setProofFor(null);
+    setProofPhoto(null);
     if (result.pending) setMessage({ text: "Enviado! Um ADM do grupo vai aprovar.", error: false });
     else if (result.gained > 0) setMessage({ text: `+${result.gained} XP e +${result.gained} pts no grupo!`, error: false });
   };
 
   const pendingReviews = group.completions.filter((c) => c.status === "pendente" && c.memberId !== user.uid);
+
+  // Foto da prova: link do Firebase Storage (todos os membros veem)
+  const photoOf = (c: (typeof group.completions)[number]) =>
+    c.photo?.startsWith("http") ? c.photo : null;
 
   const handleAddEvent = () => {
     const day = parseDate(eventDate);
@@ -206,7 +214,7 @@ export default function GroupScreen() {
       return;
     }
     setInviteHandle("");
-    setMessage({ text: "Convite registrado (envio depende do servidor).", error: false });
+    setMessage({ text: `Convite registrado. Passe o código ${group.code} para essa pessoa entrar.`, error: false });
   };
 
   const handleLeave = async () => {
@@ -220,19 +228,10 @@ export default function GroupScreen() {
     router.replace("/groups");
   };
 
-  const handleRemoveDemo = async () => {
-    const ok = await confirmAction(
-      "Remover exemplos",
-      "Remover os “Amigos exemplo” do ranking deste grupo?",
-      "Remover",
-    );
-    if (ok) removeDemoMembers(group.id);
-  };
-
   const handleDelete = async () => {
     const ok = await confirmAction(
       "Excluir grupo",
-      `Excluir "${group.name}"? Tarefas, ranking e mural do grupo serão apagados deste aparelho.`,
+      `Excluir "${group.name}"? Tarefas, ranking e mural do grupo serão apagados para todos os membros.`,
       "Excluir",
     );
     if (!ok) return;
@@ -243,7 +242,7 @@ export default function GroupScreen() {
   return (
     <View style={styles.container}>
       <LinearGradient colors={["#6B4A91", "#43247D"]} style={styles.background}>
-        <ScrollView keyboardDismissMode="on-drag" contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <View style={styles.fixedHeader}>
           <View style={styles.header}>
             <TouchableOpacity
               onPress={goBack}
@@ -260,13 +259,14 @@ export default function GroupScreen() {
 
             <View style={{ width: 25 }} />
           </View>
-
+        </View>
+        <ScrollView keyboardDismissMode="on-drag" stickyHeaderIndices={[2]} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           {/* FOTO DO GRUPO (ADM troca) */}
           <View style={styles.photoWrap}>
             <TouchableOpacity
               disabled={!admin}
               onPress={async () => {
-                const f = await pickImage();
+                const f = await pickImage("grupos");
                 if (f) setGroupPhoto(group.id, f.uri);
               }}
               accessibilityRole="button"
@@ -385,10 +385,11 @@ export default function GroupScreen() {
                         </TouchableOpacity>
                       ) : null}
                     </View>
-                    {proofFor === task.id && !done ? (
+                    {/* PROVA "CONTAR O QUE FEZ": só texto */}
+                    {proofFor === task.id && !done && rule === "texto" ? (
                       <View style={[styles.formCard, { marginTop: 0, marginBottom: 8 }]}>
                         <Text style={styles.taskMeta}>
-                          {rule === "aprovacao" ? "Conte como fez. Um ADM vai conferir e aprovar." : "Conte como você fez para concluir."}
+                          <Ionicons name="chatbubble-ellipses-outline" /> Conte para o grupo o que você fez.
                         </Text>
                         <TextInput
                           value={proofText}
@@ -397,12 +398,101 @@ export default function GroupScreen() {
                           placeholderTextColor="#9E94AB"
                           style={[styles.input, { marginTop: 8 }]}
                           multiline
+                          accessibilityLabel="O que você fez"
                         />
-                        <TouchableOpacity style={styles.primary} onPress={() => handleComplete(task.id, proofText)}>
+                        <Text style={styles.taskMeta}>{proofText.trim().length}/15 letras no mínimo</Text>
+                        <TouchableOpacity
+                          style={[styles.primary, proofText.trim().length < 15 && styles.disabled]}
+                          onPress={() => handleComplete(task.id, true)}
+                          disabled={proofText.trim().length < 15}
+                          accessibilityRole="button"
+                        >
                           <Text style={styles.primaryText}>Enviar</Text>
                         </TouchableOpacity>
                       </View>
                     ) : null}
+
+                    {/* PROVA COM FOTO: foto tirada na hora (+ comentário opcional) */}
+                    {proofFor === task.id && !done && rule !== "texto" ? (
+                      <View style={[styles.formCard, { marginTop: 0, marginBottom: 8 }]}>
+                        <Text style={styles.taskMeta}>
+                          <Ionicons name="camera-outline" /> Tire uma foto mostrando que você fez.
+                          {rule === "aprovacao" ? " Um ADM vai conferir e aprovar." : ""}
+                        </Text>
+                        {proofPhoto ? (
+                          <ZoomablePhoto uri={proofPhoto} style={styles.proofPreview} label="Sua foto da prova" />
+                        ) : null}
+                        <TouchableOpacity
+                          style={[styles.chip, styles.cameraButton]}
+                          onPress={async () => {
+                            const shot = await takePhoto("provas");
+                            if (shot) setProofPhoto(shot.uri);
+                          }}
+                          accessibilityRole="button"
+                        >
+                          <Ionicons name="camera" size={18} color="#FFF" />
+                          <Text style={styles.chipText}>{proofPhoto ? "Tirar outra foto" : "Tirar foto"}</Text>
+                        </TouchableOpacity>
+                        <TextInput
+                          value={proofText}
+                          onChangeText={setProofText}
+                          placeholder="Quer comentar? (opcional)"
+                          placeholderTextColor="#9E94AB"
+                          style={[styles.input, { marginTop: 8 }]}
+                          multiline
+                        />
+                        <TouchableOpacity
+                          style={[styles.primary, !proofPhoto && styles.disabled]}
+                          onPress={() => handleComplete(task.id, true)}
+                          disabled={!proofPhoto}
+                          accessibilityRole="button"
+                        >
+                          <Text style={styles.primaryText}>Enviar prova</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ) : null}
+
+                    {/* O que cada um contou (tarefas "Contar o que fez") */}
+                    {group.completions
+                      .filter((c) => c.taskId === task.id && c.period === taskPeriod(task) && !c.hasPhoto && !c.photo && c.proof && c.status !== "recusada")
+                      .map((c) => (
+                        <Text key={c.memberId} style={[styles.taskMeta, styles.proofSaid]}>
+                          <Text style={{ fontWeight: "700" }}>{memberName(c.memberId)}:</Text> “{c.proof}”
+                        </Text>
+                      ))}
+
+                    {/* Fotos de quem já fez neste período */}
+                    {(() => {
+                      const shots = group.completions.filter(
+                        (c) => c.taskId === task.id && c.period === taskPeriod(task) && (c.hasPhoto || c.photo) && c.status !== "recusada",
+                      );
+                      if (!shots.length) return null;
+                      return (
+                        <View style={styles.proofStrip}>
+                          {shots.map((c) => (
+                            <View key={c.memberId} style={styles.proofThumbWrap}>
+                              {photoOf(c) ? (
+                                <ZoomablePhoto
+                                  uri={photoOf(c)!}
+                                  style={styles.proofThumb}
+                                  label={`Prova de ${memberName(c.memberId)}`}
+                                  caption={`${memberName(c.memberId)}${c.proof ? `: “${c.proof}”` : ""}`}
+                                />
+                              ) : (
+                                <View style={[styles.proofThumb, styles.proofPlaceholder]} accessibilityLabel={`${memberName(c.memberId)} enviou foto`}>
+                                  <Ionicons name="camera" size={24} color="#DDD6FE" />
+                                  <Text style={styles.proofName}>foto enviada</Text>
+                                </View>
+                              )}
+                              <Text style={styles.proofName} numberOfLines={1}>
+                                {c.status === "pendente" ? "⏳ " : ""}
+                                {memberName(c.memberId)}
+                              </Text>
+                            </View>
+                          ))}
+                        </View>
+                      );
+                    })()}
                     </View>
                   );
                 })
@@ -417,6 +507,13 @@ export default function GroupScreen() {
                       <Text style={styles.taskTitle}>
                         {memberName(c.memberId)} · {group.tasks.find((t) => t.id === c.taskId)?.title ?? "tarefa"}
                       </Text>
+                      {photoOf(c) ? (
+                        <ZoomablePhoto uri={photoOf(c)!} style={styles.proofPreview} label={`Prova de ${memberName(c.memberId)}`} />
+                      ) : c.hasPhoto ? (
+                        <Text style={styles.taskMeta}>
+                          <Ionicons name="camera" /> Enviou foto (a foto aparece aqui quando o envio para o Firebase Storage estiver ligado)
+                        </Text>
+                      ) : null}
                       {c.proof ? <Text style={styles.taskMeta}>“{c.proof}”</Text> : null}
                       <View style={styles.chips}>
                         <TouchableOpacity style={[styles.chip, styles.chipActive]} onPress={() => reviewCompletion(group.id, c.memberId, c.taskId, c.period, true)}>
@@ -561,8 +658,7 @@ export default function GroupScreen() {
           {section === "ranking" && (
             <>
               <Text style={styles.hint}>
-                Pontos = XP das tarefas do grupo concluídas. Os “Amigos exemplo” têm
-                pontos fixos só para demonstração.
+                Pontos = XP das tarefas do grupo concluídas por cada membro.
               </Text>
               {ranking.map((row) => {
                 const isMe = row.id === user.uid;
@@ -583,7 +679,6 @@ export default function GroupScreen() {
                     <Text style={styles.rankName} numberOfLines={1}>
                       {isMe ? `${displayName(user)} (você)` : row.name}
                     </Text>
-                    {row.isDemo ? <Text style={styles.demoTag}>exemplo</Text> : null}
                     <Text style={styles.rankPoints}>{row.points} pts</Text>
                   </View>
                 );
@@ -626,9 +721,8 @@ export default function GroupScreen() {
                 Publicações visíveis só para os membros deste grupo.
               </Text>
               <PostComposer
-                onSubmit={(text) => addPost(group.id, text)}
+                onSubmit={(text, image) => addPost(group.id, text, image)}
                 placeholder="Escreva para o grupo..."
-                imageNotice="Fotos no mural do grupo (vistas só pelos membros) ficam disponíveis quando o armazenamento de arquivos for integrado ao servidor."
               />
               {group.posts.length === 0 ? (
                 <Text style={styles.emptyText}>Nenhuma publicação no grupo ainda.</Text>
@@ -636,7 +730,10 @@ export default function GroupScreen() {
                 group.posts.map((p) => (
                   <View key={p.id} style={styles.post}>
                     <Text style={styles.postAuthor}>{memberName(p.authorId)}</Text>
-                    <Text style={styles.postText}>{p.text}</Text>
+                    {p.text ? <Text style={styles.postText}>{p.text}</Text> : null}
+                    {p.image ? (
+                      <ZoomablePhoto uri={p.image} style={styles.postImage} label="Imagem da publicação" />
+                    ) : null}
                     <Text style={styles.postDate}>
                       {new Date(p.createdAt).toLocaleString("pt-BR", {
                         day: "2-digit",
@@ -658,7 +755,6 @@ export default function GroupScreen() {
                 <View key={m.id} style={styles.memberRow}>
                   <TouchableOpacity
                     style={{ flex: 1 }}
-                    disabled={m.isDemo}
                     onPress={() => router.push({ pathname: "/user", params: { id: m.id } })}
                     accessibilityRole="button"
                     accessibilityLabel={`Ver perfil de ${m.name}`}
@@ -667,9 +763,9 @@ export default function GroupScreen() {
                       {m.id === user.uid ? `${displayName(user)} (você)` : m.name}
                     </Text>
                   </TouchableOpacity>
-                  <Text style={styles.memberRole}>{m.isDemo ? "exemplo" : roleOf(m.id)}</Text>
+                  <Text style={styles.memberRole}>{roleOf(m.id)}</Text>
                   {/* Só o criador promove ou tira ADM */}
-                  {group.ownerId === user.uid && !m.isDemo && m.id !== group.ownerId ? (
+                  {group.ownerId === user.uid && m.id !== group.ownerId ? (
                     <TouchableOpacity
                       style={[styles.chip, { marginLeft: 6, paddingVertical: 4 }]}
                       onPress={() => setAdmin(group.id, m.id, roleOf(m.id) !== "ADM")}
@@ -754,20 +850,9 @@ export default function GroupScreen() {
                 </TouchableOpacity>
                 <Text style={styles.limit}>
                   Para entrar, o amigo usa o código {group.code} em Grupos › Entrar
-                  com código. Neste aparelho já funciona; o envio do convite e a
-                  entrada a partir de outros aparelhos dependem do servidor.
+                  com código. Quando ele entrar, o convite deixa de ficar pendente.
                 </Text>
               </View>
-
-              {group.ownerId === user.uid && group.members.some((m) => m.isDemo) ? (
-                <TouchableOpacity
-                  style={styles.secondary}
-                  onPress={handleRemoveDemo}
-                  accessibilityRole="button"
-                >
-                  <Text style={styles.secondaryText}>Remover participantes de exemplo</Text>
-                </TouchableOpacity>
-              ) : null}
 
               {group.ownerId === user.uid ? (
                 <TouchableOpacity
@@ -798,7 +883,9 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   background: { flex: 1 },
 
-  content: { padding: 15, paddingBottom: 110 },
+  // Cabeçalho fixo: fica parado no topo enquanto o conteúdo rola
+  fixedHeader: { paddingHorizontal: 15, paddingTop: 15 },
+  content: { paddingHorizontal: 15, paddingTop: 4, paddingBottom: 110 },
 
   notFound: { flex: 1, justifyContent: "center", padding: 20 },
 
@@ -918,6 +1005,14 @@ const styles = StyleSheet.create({
   removeText: { color: "#f87171", fontSize: 16 },
 
   reviewRow: { borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.08)", paddingVertical: 8 },
+  proofPreview: { width: "100%", height: 260, borderRadius: 10, marginTop: 8 },
+  cameraButton: { flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-start", marginTop: 8 },
+  proofSaid: { marginLeft: 40, marginBottom: 6 },
+  proofStrip: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginLeft: 40, marginBottom: 10 },
+  proofThumbWrap: { width: 96, alignItems: "center" },
+  proofThumb: { width: 92, height: 92, borderRadius: 10 },
+  proofPlaceholder: { backgroundColor: "rgba(255,255,255,0.08)", alignItems: "center", justifyContent: "center", gap: 2 },
+  proofName: { color: "#C7BADB", fontSize: 11, marginTop: 3, maxWidth: 96 },
 
   formCard: {
     backgroundColor: "#25193A",
@@ -989,17 +1084,6 @@ const styles = StyleSheet.create({
 
   rankName: { color: "#FFF", fontSize: 14, flex: 1 },
 
-  demoTag: {
-    color: "#C7BADB",
-    fontSize: 10,
-    borderWidth: 1,
-    borderColor: "#5B21B6",
-    borderRadius: 6,
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-    marginRight: 6,
-  },
-
   rankPoints: { color: "#B83CE5", fontSize: 14, fontWeight: "700" },
   saveBar: { height: 6, backgroundColor: "#57356F", borderRadius: 6, marginTop: 4, overflow: "hidden" },
   saveFill: { height: "100%", backgroundColor: "#0EA5E9" },
@@ -1014,6 +1098,8 @@ const styles = StyleSheet.create({
   postAuthor: { color: "#FFF", fontSize: 13, fontWeight: "700" },
 
   postText: { color: "#E2E8F0", fontSize: 14, marginTop: 4 },
+
+  postImage: { width: "100%", height: 220, borderRadius: 10, marginTop: 8 },
 
   postDate: { color: "#9E94AB", fontSize: 11, marginTop: 6 },
 

@@ -12,7 +12,7 @@ import {
   View,
 } from "react-native";
 
-import CustomGoals from "@/components/CustomGoals";
+import { FocusLogo } from "@/components/FocusLogo";
 import UserAvatar from "@/components/UserAvatar";
 import {
   ACHIEVEMENTS,
@@ -39,19 +39,22 @@ import { UserContext } from "@/context/UserContext";
 import { XPContext } from "@/context/XPContext";
 import { groupRanking } from "@/services/groupsService";
 
+// Início com no máximo 6 blocos (pedido do grupo): bem-vindo, ciclo de foco,
+// hábitos, desafios, atalhos e ranking. Foco, Desafios (rotina) e Grupos foram
+// para a barra de baixo; Conquistas, Progresso e Histórico de XP ficam no Perfil.
 const SHORTCUTS = [
-  { label: "Foco", icon: "stopwatch-outline", href: "/focus" },
-  { label: "Minha rotina", icon: "calendar-outline", href: "/routine" },
+  { label: "Diário", icon: "journal-outline", href: "/diary" },
   { label: "Agenda", icon: "today-outline", href: "/agenda" },
   { label: "Desenvolvimento pessoal", icon: "layers-outline", href: "/projects" },
-  { label: "Diário", icon: "journal-outline", href: "/diary" },
-  { label: "Progresso", icon: "trending-up-outline", href: "/progress" },
-  { label: "Grupos", icon: "people-outline", href: "/groups" },
-  { label: "Ranking", icon: "podium-outline", href: "/ranking" },
   { label: "Minha Estante", icon: "library-outline", href: "/bookshelf" },
-  { label: "Histórico de XP", icon: "receipt-outline", href: "/xp-history" },
   { label: "Finanças", icon: "wallet-outline", href: "/finance" },
   { label: "Lembretes", icon: "notifications-outline", href: "/reminders" },
+] as const;
+
+const CYCLE_TABS = [
+  { id: "daily", label: "Diários" },
+  { id: "weekly", label: "Semanais" },
+  { id: "monthly", label: "Mensais" },
 ] as const;
 
 export default function Challenges() {
@@ -83,7 +86,7 @@ export default function Challenges() {
 
   const [xpText, setXpText] = useState("");
   const [cycleBanner, setCycleBanner] = useState("");
-  const [reminderError, setReminderError] = useState("");
+  const [cycleTab, setCycleTab] = useState<Frequency>("daily");
   const [xpAnim] = useState(new Animated.Value(0));
 
   // O aviso de LEVEL UP fica no layout das abas (components/LevelUpOverlay)
@@ -152,16 +155,6 @@ export default function Challenges() {
     if (!extras || !isEditableTask(id)) return false;
     if (featureOf(id).modules.some((m) => m.kind === "flashcards")) return extras.cards.length > 0;
     return extras.entriesOf(id).length > 0;
-  };
-
-  // Aviso de novidade: some quando a pessoa fecha ou liga os lembretes
-  const withoutReminder = tasks.filter((t) => t.frequency === "daily" && !reminderOn(t.id));
-  const showReminderTip = !!extras && !extras.reminderTipClosed && withoutReminder.length > 0;
-  const enableAll = async () => {
-    if (!extras) return;
-    const error = await extras.enableReminders(tasks.map((t) => t.id));
-    setReminderError(error ?? "");
-    if (!error) setCycleBanner("Lembretes ligados! Toque no sininho para mudar o horário.");
   };
 
   // Linha de apoio: progresso do critério e horário do lembrete
@@ -268,6 +261,11 @@ export default function Challenges() {
             },
           ]}
         >
+          {/* MARCA: logo do Focus no topo do Início */}
+          <View style={[styles.brandBar, { marginBottom: s(8) }]}>
+            <FocusLogo size={s(78)} />
+          </View>
+
           {/* BEM-VINDO */}
 
           <View
@@ -400,6 +398,15 @@ export default function Challenges() {
               {xpToNext} XP para o próximo nível
             </Text>
 
+            {/* Sequência e XP da semana (antes eram cartões separados) */}
+            <View style={[styles.miniStats, { gap: s(10), marginTop: s(6) }]}>
+              <Text style={[styles.miniStat, { fontSize: s(8) }]}>
+                <Ionicons name="flame" color="#FB923C" /> {streakDays} {streakDays === 1 ? "dia" : "dias"} seguidos
+                {activeToday ? "" : " · conclua algo hoje"}
+              </Text>
+              <Text style={[styles.miniStat, { fontSize: s(8) }]}>+{weeklyXp} XP na semana</Text>
+            </View>
+
             {xpText !== "" && (
               <Animated.Text
                 style={[
@@ -457,32 +464,35 @@ export default function Challenges() {
             </View>
           )}
 
-          {/* FOCO EM ANDAMENTO */}
+          {/* CICLO DE FOCO (Figma: sempre visível; mostra o tempo quando está rodando) */}
 
-          {focus.status !== "idle" && (
-            <TouchableOpacity
-              onPress={() => router.push("/focus")}
-              activeOpacity={0.8}
-              accessibilityRole="button"
-              style={[
-                styles.focusBanner,
-                {
-                  borderRadius: s(7),
-                  paddingHorizontal: s(9),
-                  paddingVertical: s(6),
-                  marginBottom: s(8),
-                },
-              ]}
-            >
-              <Text style={[styles.focusBannerText, { fontSize: s(9) }]}>
-                <Ionicons name="stopwatch-outline" /> {PHASE_LABEL[focus.phase]}{" "}
-                {focus.status === "paused" ? "pausado" : "em andamento"}
-              </Text>
-              <Text style={[styles.focusBannerTime, { fontSize: s(11) }]}>
-                {formatTimer(focus.remainingMs)}
-              </Text>
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity
+            onPress={() => router.push("/focus")}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel={
+              focus.status === "idle" ? "Abrir ciclo de foco" : `${PHASE_LABEL[focus.phase]} ${formatTimer(focus.remainingMs)}`
+            }
+            style={[
+              styles.focusBanner,
+              {
+                borderRadius: s(7),
+                paddingHorizontal: s(9),
+                paddingVertical: s(7),
+                marginBottom: s(10),
+              },
+            ]}
+          >
+            <Text style={[styles.focusBannerText, { fontSize: s(10) }]}>
+              <Ionicons name="stopwatch-outline" />{" "}
+              {focus.status === "idle"
+                ? "Ciclo de foco"
+                : `${PHASE_LABEL[focus.phase]} ${focus.status === "paused" ? "pausado" : "em andamento"}`}
+            </Text>
+            <Text style={[styles.focusBannerTime, { fontSize: s(12) }]}>
+              {formatTimer(focus.remainingMs)}
+            </Text>
+          </TouchableOpacity>
 
           {/* HÁBITOS DE HOJE (criados pela pessoa) */}
 
@@ -571,64 +581,9 @@ export default function Challenges() {
             )}
           </View>
 
-          {/* NOVIDADE: LEMBRETES */}
+          {/* DESAFIOS: um bloco só, com abas Diários / Semanais / Mensais */}
 
-          {showReminderTip && (
-            <View
-              style={[
-                styles.reminderTip,
-                { borderRadius: s(7), padding: s(9), marginBottom: s(10) },
-              ]}
-            >
-              <View style={styles.reminderTipTop}>
-                <Ionicons name="notifications" size={s(20)} color="#DDD6FE" style={{ marginRight: s(7) }} />
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={[styles.reminderTipTitle, { fontSize: s(11) }]}>
-                    Novidade: lembretes nas tarefas
-                  </Text>
-                  <Text style={[styles.reminderTipText, { fontSize: s(8), marginTop: s(2) }]}>
-                    As diárias tocam na barra de notificações no horário delas. Semanais e
-                    mensais recebem o “reveja seus objetivos”. Tudo fica na Central de lembretes.
-                  </Text>
-                  <Text style={[styles.reminderTipText, { fontSize: s(8), marginTop: s(3) }]}>
-                    <Ionicons name="notifications" /> ligado · <Ionicons name="notifications-off-outline" /> desligado · {withoutReminder.length} sem lembrete
-                  </Text>
-                </View>
-              </View>
-
-              <View style={[styles.reminderTipActions, { gap: s(6), marginTop: s(7) }]}>
-                <TouchableOpacity
-                  onPress={enableAll}
-                  accessibilityRole="button"
-                  style={[
-                    styles.reminderTipButton,
-                    { borderRadius: s(6), paddingHorizontal: s(9), paddingVertical: s(5) },
-                  ]}
-                >
-                  <Text style={[styles.reminderTipButtonText, { fontSize: s(9) }]}>
-                    Ligar todos
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => extras?.closeReminderTip()}
-                  accessibilityRole="button"
-                  hitSlop={8}
-                >
-                  <Text style={[styles.manageLink, { fontSize: s(8) }]}>Agora não</Text>
-                </TouchableOpacity>
-              </View>
-
-              {reminderError !== "" && (
-                <Text style={[styles.reminderTipError, { fontSize: s(8), marginTop: s(5) }]}>
-                  {reminderError}
-                </Text>
-              )}
-            </View>
-          )}
-
-          {/* TAREFAS (CICLOS) */}
-
-          {(["daily", "weekly", "monthly"] as const).map((frequency) => {
+          {[cycleTab].map((frequency) => {
             const list = tasksOf(frequency);
             const status = cycleStatus(frequency);
 
@@ -653,11 +608,7 @@ export default function Challenges() {
                   },
                 ]}
               >
-                {frequency === "daily"
-                  ? "Tarefas de Hoje"
-                  : frequency === "weekly"
-                    ? "Tarefas da Semana"
-                    : "Metas do Mês"}
+                Desafios
               </Text>
 
               <TouchableOpacity
@@ -670,6 +621,25 @@ export default function Challenges() {
                   Gerenciar
                 </Text>
               </TouchableOpacity>
+            </View>
+
+            <View style={[styles.cycleTabs, { borderRadius: s(6), padding: s(2), marginTop: s(6) }]}>
+              {CYCLE_TABS.map((t) => {
+                const st = cycleStatus(t.id);
+                return (
+                  <TouchableOpacity
+                    key={t.id}
+                    onPress={() => setCycleTab(t.id)}
+                    accessibilityRole="tab"
+                    aria-selected={cycleTab === t.id}
+                    style={[styles.cycleTab, { borderRadius: s(5), paddingVertical: s(5) }, cycleTab === t.id && styles.cycleTabActive]}
+                  >
+                    <Text style={[styles.cycleTabText, { fontSize: s(8) }]} numberOfLines={1}>
+                      {t.label} {st.done}/{st.total}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
 
             {/* Progresso do ciclo */}
@@ -865,115 +835,6 @@ export default function Challenges() {
           </View>
             );
           })}
-
-          {/* METAS PRÓPRIAS (check-in do dia) */}
-          <CustomGoals manage={false} />
-
-          {/* ESTATÍSTICAS */}
-
-          <View
-            style={[
-              styles.statsRow,
-              {
-                gap: s(7),
-                marginBottom: s(7),
-              },
-            ]}
-          >
-            <View
-              style={[
-                styles.streakCard,
-                {
-                  borderRadius: s(7),
-                  padding: s(8),
-                  minHeight: s(55),
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.streakTitle,
-                  {
-                    fontSize: s(11),
-                  },
-                ]}
-              >
-                Sequência
-              </Text>
-
-              <View style={styles.streakContent}>
-                <Text
-                  style={[
-                    styles.fire,
-                    {
-                      fontSize: s(23),
-                      marginRight: s(5),
-                    },
-                  ]}
-                >
-                  <Ionicons name="flame" color="#FB923C" />
-                </Text>
-
-                <Text
-                  style={[
-                    styles.streakNumber,
-                    {
-                      fontSize: s(11),
-                    },
-                  ]}
-                >
-                  {streakDays} {streakDays === 1 ? "dia" : "dias"}
-                </Text>
-              </View>
-
-              {/* Explica por que fica em 1 no mesmo dia (conta dias, não tarefas) */}
-              <Text style={[styles.demoLabel, { fontSize: s(6) }]}>
-                {activeToday
-                  ? `hoje garantido · amanhã vira ${streakDays + 1}`
-                  : streakDays > 0
-                    ? "conclua algo hoje para não perder"
-                    : "conclua um desafio para começar"}
-              </Text>
-            </View>
-
-            <View
-              style={[
-                styles.weekCard,
-                {
-                  borderRadius: s(7),
-                  padding: s(8),
-                  minHeight: s(55),
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.weekTitle,
-                  {
-                    fontSize: s(8),
-                  },
-                ]}
-              >
-                XP ganho essa semana
-              </Text>
-
-              <Text
-                style={[
-                  styles.weekXp,
-                  {
-                    fontSize: s(15),
-                    marginTop: s(2),
-                  },
-                ]}
-              >
-                +{weeklyXp}xp
-              </Text>
-
-              <Text style={[styles.demoLabelLight, { fontSize: s(6) }]}>
-                desde segunda-feira
-              </Text>
-            </View>
-          </View>
 
           {/* ATALHOS */}
 
@@ -1180,6 +1041,39 @@ const styles = StyleSheet.create({
 
   tasksCard: {
     backgroundColor: "#25193A",
+  },
+
+  brandBar: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  cycleTabs: {
+    flexDirection: "row",
+    backgroundColor: "#1A1129",
+  },
+
+  cycleTab: {
+    flex: 1,
+    alignItems: "center",
+  },
+
+  cycleTabActive: {
+    backgroundColor: "#7C3AED",
+  },
+
+  cycleTabText: {
+    color: "#FFFFFF",
+    fontWeight: "600",
+  },
+
+  miniStats: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+  },
+
+  miniStat: {
+    color: "#E9D5FF",
   },
 
   tasksTitle: {

@@ -95,7 +95,7 @@ export default function Finance() {
   return (
     <View style={styles.container}>
       <LinearGradient colors={["#6B4A91", "#43247D"]} style={styles.background}>
-        <ScrollView keyboardDismissMode="on-drag" ref={scrollRef} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <View style={styles.fixedHeader}>
           <View style={styles.header}>
             <TouchableOpacity
               onPress={() => (router.canGoBack() ? router.back() : router.replace("/challenges"))}
@@ -124,13 +124,12 @@ export default function Finance() {
               </TouchableOpacity>
             ))}
           </View>
-
+        </View>
+        <ScrollView keyboardDismissMode="on-drag" ref={scrollRef} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           {tab === "resumo" ? <Summary /> : null}
           {tab === "lancamentos" ? <Entries onEdit={() => scrollRef.current?.scrollTo({ y: 0, animated: true })} /> : null}
           {tab === "cofrinhos" ? <Goals onEdit={() => scrollRef.current?.scrollTo({ y: 0, animated: true })} /> : null}
           {tab === "aprender" ? <Learn /> : null}
-
-          <Text style={styles.note}>Seus dados de finanças ficam salvos só neste aparelho.</Text>
         </ScrollView>
       </LinearGradient>
     </View>
@@ -952,7 +951,9 @@ function Learn() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   background: { flex: 1 },
-  content: { padding: 15, paddingBottom: 110 },
+  // Cabeçalho fixo: fica parado no topo enquanto o conteúdo rola
+  fixedHeader: { paddingHorizontal: 15, paddingTop: 15 },
+  content: { paddingHorizontal: 15, paddingTop: 4, paddingBottom: 110 },
 
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
   back: { color: "#FFF", fontSize: 25 },

@@ -1,9 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Image } from "expo-image";
 import { router } from "expo-router";
 import React, { useContext, useState } from "react";
 import { Linking, Text, TextInput, TouchableOpacity, View } from "react-native";
 
+import { ZoomablePhoto } from "@/components/PhotoViewer";
 import { CardTitle, formatDay, ui } from "@/components/ScreenShell";
 import { CATALOG_BY_ID } from "@/constants/challenges";
 import { dayKey, monthKey } from "@/constants/gamification";
@@ -22,7 +22,6 @@ import {
   PlannerContext,
   PROJECT_MIN_DAYS,
   projectProgressDays,
-  PROOF_MIN_CHARS,
   RUN_MONTH_TASK,
   TRAINING_MONTH_TASK,
   weekDays,
@@ -110,7 +109,7 @@ export function PlannerModule({ taskId, view }: { taskId: string; view: PlannerV
     case "runs":
       return <RunsCard />;
     case "projects":
-      return <ProjectsLinkCard kind={view.kind} />;
+      return <ProjectsLinkCard kind={view.kind} weekly={CATALOG_BY_ID[taskId]?.frequency === "weekly"} />;
     case "meetup":
       return <MeetupCard />;
     case "proof":
@@ -245,7 +244,7 @@ function AttachRow({ files, onAdd, onRemove }: { files: FileRef[]; onAdd: (f: Fi
       {files.map((f) => (
         <View key={f.uri} style={ui.listRow}>
           {f.kind === "image" ? (
-            <Image source={{ uri: f.uri }} style={{ width: 44, height: 44, borderRadius: 6 }} />
+            <ZoomablePhoto uri={f.uri} style={{ width: 96, height: 96, borderRadius: 8 }} label={f.name} />
           ) : (
             <Ionicons name="document-attach-outline" size={22} color="#DDD6FE" />
           )}
@@ -1116,13 +1115,13 @@ function SleepCompareCard({ scope }: { scope: "week" | "month" }) {
 
 // ---------- Projetos, encontro e prova ----------
 
-function ProjectsLinkCard({ kind }: { kind: "curso" | "projeto" | "criacao" | "aprender" | "any" }) {
+function ProjectsLinkCard({ kind, weekly }: { kind: "curso" | "projeto" | "criacao" | "any"; weekly: boolean }) {
   const p = useContext(PlannerContext)!;
-  const list = p.projects.filter((x) => kind === "any" || x.kind === kind).filter((x) => !x.doneAt);
+  const list = p.projects.filter((x) => kind === "any" || (kind === "criacao" ? !!x.creation : x.kind === kind)).filter((x) => !x.doneAt);
   return (
     <View style={ui.card}>
-      <CardTitle icon="layers-outline">Desenvolvimento pessoal{kind !== "any" ? ` · ${KIND_LABEL[kind]}` : ""}</CardTitle>
-      <Text style={ui.hint}>Cursos, projetos, criações e coisas novas para aprender ficam num lugar só, com prazo, progresso e anexos.</Text>
+      <CardTitle icon="layers-outline">Desenvolvimento pessoal{kind === "criacao" ? " · Criações" : kind !== "any" ? ` · ${KIND_LABEL[kind]}` : ""}</CardTitle>
+      <Text style={ui.hint}>Cursos e projetos (com as suas criações) ficam num lugar só, com prazo, progresso e anexos.</Text>
       {list.slice(0, 4).map((x) => (
         <View key={x.id} style={ui.listRow}>
           <View style={{ flex: 1 }}>
@@ -1137,8 +1136,10 @@ function ProjectsLinkCard({ kind }: { kind: "curso" | "projeto" | "criacao" | "a
         <Text style={ui.smallButtonText}>Abrir a Área de desenvolvimento pessoal</Text>
       </TouchableOpacity>
       <Rule>
-        {kind === "any" || kind === "aprender"
-          ? "A semanal conclui quando você registra um avanço."
+        {weekly
+          ? kind === "curso"
+            ? "A semanal conclui quando você registra uma aula num curso."
+            : "A semanal conclui quando você registra um avanço."
           : `Conclui ao marcar como concluído, com progresso registrado em ${PROJECT_MIN_DAYS}+ dias diferentes.`}
       </Rule>
     </View>
@@ -1184,21 +1185,42 @@ function ProofCard({ taskId }: { taskId: string }) {
   return (
     <View style={ui.card}>
       <CardTitle icon="camera-outline">Registrar como foi</CardTitle>
-      <TextInput style={[ui.input, ui.textArea, { minHeight: 70 }]} value={text} onChangeText={setText} multiline placeholder="O que você fez? Como foi?" placeholderTextColor="#9E94AB" />
       <View style={ui.chips}>
-        <TouchableOpacity style={ui.chip} onPress={async () => setFile(await pickImage())}>
-          <Text style={ui.chipText}>{file ? "Trocar foto" : "Anexar foto"}</Text>
+        <TouchableOpacity style={ui.chip} onPress={async () => setFile((await pickImage()) ?? file)}>
+          <Text style={ui.chipText}>
+            <Ionicons name="camera-outline" /> {file?.kind === "image" ? "Trocar foto" : "Anexar foto"}
+          </Text>
         </TouchableOpacity>
-        {file ? <Image source={{ uri: file.uri }} style={{ width: 44, height: 44, borderRadius: 6 }} /> : null}
+        <TouchableOpacity style={ui.chip} onPress={async () => setFile((await pickDocument()) ?? file)}>
+          <Text style={ui.chipText}>
+            <Ionicons name="document-attach-outline" /> {file?.kind === "document" ? "Trocar documento" : "Anexar documento"}
+          </Text>
+        </TouchableOpacity>
       </View>
-      <TouchableOpacity style={ui.smallButton} onPress={save}>
+      {file ? (
+        <View style={ui.listRow}>
+          {file.kind === "image" ? (
+            <ZoomablePhoto uri={file.uri} style={{ width: 120, height: 120, borderRadius: 8 }} label="Foto anexada" />
+          ) : (
+            <Ionicons name="document-text-outline" size={22} color="#DDD6FE" />
+          )}
+          <Text style={[ui.listSub, { flex: 1 }]} numberOfLines={1}>
+            {file.name}
+          </Text>
+          <TouchableOpacity onPress={() => setFile(null)} hitSlop={8} accessibilityLabel="Remover anexo">
+            <Ionicons name="close-circle-outline" size={20} color="#F87171" />
+          </TouchableOpacity>
+        </View>
+      ) : null}
+      <TextInput style={[ui.input, ui.textArea, { minHeight: 70 }]} value={text} onChangeText={setText} multiline placeholder="Quer contar como foi? (opcional)" placeholderTextColor="#9E94AB" />
+      <TouchableOpacity style={[ui.smallButton, !file && { opacity: 0.5 }]} onPress={save}>
         <Text style={ui.smallButtonText}>Salvar e concluir</Text>
       </TouchableOpacity>
       <Err text={error} />
-      <Rule>Para não virar só um clique: conte como foi ({PROOF_MIN_CHARS}+ letras) ou mande uma foto.</Rule>
+      <Rule>Só conclui com uma foto ou um documento como comprovante. Contar como foi é opcional.</Rule>
       {list.slice(0, 5).map((pf) => (
         <View key={pf.id} style={ui.listRow}>
-          {pf.file ? <Image source={{ uri: pf.file.uri }} style={{ width: 36, height: 36, borderRadius: 6 }} /> : <Ionicons name="document-text-outline" size={18} color="#DDD6FE" />}
+          {pf.file?.kind === "image" ? <ZoomablePhoto uri={pf.file.uri} style={{ width: 96, height: 96, borderRadius: 8 }} label="Comprovante" caption={pf.text || undefined} /> : <Ionicons name="document-text-outline" size={18} color="#DDD6FE" />}
           <View style={{ flex: 1 }}>
             <Text style={ui.listSub}>{formatDay(dayKey(new Date(pf.at)))}</Text>
             {pf.text ? <Text style={ui.desc}>{pf.text}</Text> : null}

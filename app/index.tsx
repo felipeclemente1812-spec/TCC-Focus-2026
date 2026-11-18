@@ -1,7 +1,7 @@
 import { Redirect } from "expo-router";
 import { useContext } from "react";
-import { ActivityIndicator, View } from "react-native";
 
+import { FocusLoading } from "@/components/FocusLogo";
 import { RoutineContext } from "@/context/RoutineContext";
 import { UserContext } from "@/context/UserContext";
 
@@ -12,18 +12,7 @@ export default function Index() {
   const routine = useContext(RoutineContext);
 
   if (!userContext?.authReady) {
-    return (
-      <View
-        style={{
-          flex: 1,
-          backgroundColor: "#1e1b4b",
-          justifyContent: "center",
-          alignItems: "center",
-        }}
-      >
-        <ActivityIndicator color="#a78bfa" size="large" />
-      </View>
-    );
+    return <FocusLoading />;
   }
 
   if (!userContext.user.uid) return <Redirect href="/login" />;

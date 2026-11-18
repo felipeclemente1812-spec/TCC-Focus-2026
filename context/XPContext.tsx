@@ -10,8 +10,7 @@ import { loadJSON, saveJSON, storageKeys } from "@/utils/localStore";
 
 export { XP_PER_LEVEL } from "@/constants/gamification";
 
-// Progresso salvo LOCALMENTE neste aparelho, por usuário (utils/localStore).
-// Quando o backend existir, trocar a implementação mantendo esta interface.
+// Progresso salvo na nuvem (Firestore), por usuário (utils/localStore).
 
 type SavedProgress = {
   completions: Completion[];

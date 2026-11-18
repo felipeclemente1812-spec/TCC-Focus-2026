@@ -1,10 +1,10 @@
-import { FontAwesome6 } from "@expo/vector-icons";
+import { FontAwesome6, Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
-import React, { useContext, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -19,9 +19,11 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { auth, db } from "@/config/firebase";
+import { TERMS_VERSION } from "@/constants/terms";
 import { UserContext } from "@/context/UserContext";
 import { cleanHandle, profileService, USERNAME_REGEX } from "@/services/profileService";
-import { notify } from "@/utils/feedback";
+import { notify, notifySuccess } from "@/utils/feedback";
+import { onTermsAccepted } from "@/utils/terms";
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -41,6 +43,10 @@ export default function RegisterScreen() {
   const [emailValido, setEmailValido] = useState<boolean | null>(null);
   const [senhaValida, setSenhaValida] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(false);
+  const [aceitouTermos, setAceitouTermos] = useState(false);
+
+  // A tela de Termos (aberta pelo link abaixo) marca a caixinha ao aceitar
+  useEffect(() => onTermsAccepted(() => setAceitouTermos(true)), []);
 
   const validarEmail = (email: string): boolean =>
     /\S+@\S+\.\S+/.test(email);
@@ -63,7 +69,6 @@ export default function RegisterScreen() {
       return;
     }
 
-    // TODO Firebase: conferir o @ no servidor (hoje só confere as contas deste aparelho)
     if (await profileService.isHandleTaken(usuarioLimpo)) {
       notify("Erro", `@${usuarioLimpo} já está em uso. Escolha outro.`);
       return;
@@ -82,6 +87,11 @@ export default function RegisterScreen() {
       return;
     }
 
+    if (!aceitouTermos) {
+      notify("Termos de Uso", "Para criar sua conta, leia e aceite os Termos de Uso.");
+      return;
+    }
+
     try {
       setLoading(true);
 
@@ -93,25 +103,32 @@ export default function RegisterScreen() {
 
       const user = userCredential.user;
 
+      const termsAcceptedAt = Date.now();
+
       await setDoc(doc(db, "users", user.uid), {
         name: nome.trim(),
         email: email.trim(),
         bio: "",
+        termsAcceptedAt,
+        termsVersion: TERMS_VERSION,
         createdAt: new Date(),
       });
 
-      // O @usuário fica no perfil local (profileService); vai para users/{uid} com o backend
+      // O perfil (incluindo o @usuário) é gravado em users/{uid} pelo UserContext
       updateUser({
         uid: user.uid,
         name: nome.trim(),
         username: usuarioLimpo,
         email: email.trim(),
         bio: "",
+        termsAcceptedAt,
+        termsVersion: TERMS_VERSION,
       });
 
       // A nova sessão recria a navegação e o index leva ao plano inicial
       // (onboarding), então aqui não navegamos para não pular essa etapa.
-      notify("Sucesso", "Conta criada! Agora vamos montar seu plano.");
+      // O aviso é um modal do próprio Focus (DialogHost, fora da sessão).
+      notifySuccess("Conta criada!", "Bem-vindo ao Focus. Agora vamos montar o seu plano.", "Continuar");
     } catch (error: any) {
       if (error.code === "auth/network-request-failed") {
         notify("Erro", "Sem conexão. Verifique sua internet e tente novamente.");
@@ -293,9 +310,34 @@ export default function RegisterScreen() {
                 </Text>
               )}
 
+              {/* TERMOS DE USO */}
+              <View style={styles.termsRow}>
+                <TouchableOpacity
+                  onPress={() => setAceitouTermos((v) => !v)}
+                  hitSlop={8}
+                  accessibilityRole="checkbox"
+                  aria-checked={aceitouTermos}
+                  accessibilityLabel="Li e aceito os Termos de Uso"
+                >
+                  <View style={[styles.checkbox, aceitouTermos && styles.checkboxOn]}>
+                    {aceitouTermos ? <Ionicons name="checkmark" size={15} color="#fff" /> : null}
+                  </View>
+                </TouchableOpacity>
+                <Text style={styles.termsText}>
+                  Li e aceito os{" "}
+                  <Text
+                    style={styles.termsLink}
+                    onPress={() => router.push({ pathname: "/terms", params: { mode: "register" } })}
+                    accessibilityRole="link"
+                  >
+                    Termos de Uso
+                  </Text>
+                </Text>
+              </View>
+
               {/* BOTÃO CADASTRO */}
               <TouchableOpacity
-                style={styles.button}
+                style={[styles.button, !aceitouTermos && styles.buttonOff]}
                 onPress={handleRegister}
                 disabled={loading}
                 activeOpacity={0.8}
@@ -400,12 +442,35 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
 
+  buttonOff: { opacity: 0.6 },
+
   buttonText: {
     color: "#fff",
     textAlign: "center",
     fontWeight: "600",
     fontSize: 15,
   },
+
+  termsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: 10,
+    marginTop: 6,
+    marginBottom: 4,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: "#cbd5f5",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  checkboxOn: { backgroundColor: "#6366f1", borderColor: "#6366f1" },
+  termsText: { color: "#cbd5f5", fontSize: 13, flexShrink: 1 },
+  termsLink: { color: "#fff", fontWeight: "600", textDecorationLine: "underline" },
 
   link: {
     color: "#cbd5f5",

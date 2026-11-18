@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
@@ -10,37 +11,47 @@ import {
   View,
 } from "react-native";
 
+import { pickImage } from "@/utils/files";
+
 const MAX_POST_LENGTH = 500;
 
 type Props = {
-  // Publica o texto; deve lançar erro se falhar (o texto é mantido)
-  onSubmit: (text: string) => Promise<void>;
+  // Publica o texto (e a imagem, já enviada ao Storage, como link); deve lançar erro
+  // se falhar (o texto e a imagem são mantidos)
+  onSubmit: (text: string, image?: string | null) => Promise<void>;
   placeholder?: string;
-  // Explicação mostrada ao tocar no botão de imagem (desativado)
-  imageNotice?: string;
 };
 
-// Caixa de publicação usada no Feed, no Perfil e no mural dos grupos
+// Caixa de publicação usada no Perfil e no mural dos grupos
 export default function PostComposer({
   onSubmit,
   placeholder = "O que você está pensando?",
-  imageNotice = "Envio de imagens ainda não disponível: depende do armazenamento de arquivos no servidor. Por enquanto, publique textos.",
 }: Props) {
   const [postText, setPostText] = useState("");
+  const [image, setImage] = useState<string | null>(null);
   const [posting, setPosting] = useState(false);
   const [postError, setPostError] = useState("");
-  const [imageInfo, setImageInfo] = useState(false);
   const progress = useState(new Animated.Value(0))[0];
+
+  const handlePickImage = async () => {
+    if (posting) return;
+    const file = await pickImage("posts");
+    if (file) {
+      setImage(file.uri);
+      setPostError("");
+    }
+  };
 
   const handlePost = async () => {
     const text = postText.trim();
-    if (!text || posting) return;
+    if ((!text && !image) || posting) return;
 
     try {
       setPosting(true);
       setPostError("");
-      await onSubmit(text);
+      await onSubmit(text, image);
       setPostText("");
+      setImage(null);
 
       Animated.timing(progress, {
         toValue: 1,
@@ -59,7 +70,7 @@ export default function PostComposer({
     }
   };
 
-  const canPost = !!postText.trim() && !posting;
+  const canPost = (!!postText.trim() || !!image) && !posting;
 
   const progressWidth = progress.interpolate({
     inputRange: [0, 1],
@@ -84,15 +95,28 @@ export default function PostComposer({
 
       {postError ? <Text style={styles.errorText}>{postError}</Text> : null}
 
-      {imageInfo ? <Text style={styles.infoText}>{imageNotice}</Text> : null}
+      {image ? (
+        <View style={styles.preview}>
+          <Image source={{ uri: image }} style={styles.previewImage} contentFit="cover" />
+          <TouchableOpacity
+            style={styles.previewRemove}
+            onPress={() => setImage(null)}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Remover imagem"
+          >
+            <Ionicons name="close" size={16} color="#fff" />
+          </TouchableOpacity>
+        </View>
+      ) : null}
 
       <View style={styles.actions}>
-        {/* Desabilitado de forma visível: explica a limitação ao tocar */}
         <TouchableOpacity
-          style={[styles.iconButton, styles.iconButtonDisabled]}
-          onPress={() => setImageInfo((v) => !v)}
+          style={styles.iconButton}
+          onPress={handlePickImage}
+          disabled={posting}
           accessibilityRole="button"
-          accessibilityLabel="Imagens indisponíveis. Toque para saber mais"
+          accessibilityLabel="Anexar imagem"
         >
           <Ionicons name="image" size={20} color="#fff" />
         </TouchableOpacity>
@@ -155,7 +179,19 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
 
-  iconButtonDisabled: { opacity: 0.45 },
+  preview: { marginBottom: 10, alignSelf: "flex-start" },
+  previewImage: { width: 160, height: 160, borderRadius: 12 },
+  previewRemove: {
+    position: "absolute",
+    top: 6,
+    right: 6,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "rgba(15,23,42,0.8)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
 
   counter: {
     color: "#94a3b8",
@@ -176,13 +212,6 @@ const styles = StyleSheet.create({
   buttonText: { color: "#fff", fontWeight: "600" },
 
   errorText: { color: "#f87171", fontSize: 13, marginBottom: 8 },
-
-  infoText: {
-    color: "#cbd5f5",
-    fontSize: 12,
-    marginBottom: 8,
-    lineHeight: 17,
-  },
 
   progressBg: {
     height: 5,

@@ -33,11 +33,10 @@ export default function UserProfile() {
 
   const p = data.profile;
   return (
-    <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" style={styles.container} contentContainerStyle={{ paddingBottom: 110 }}>
+    <View style={styles.container}>
+    <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 110 }}>
       <ProfileBanner banner={p.banner} preset={p.bannerPreset} avatar={p.avatar}>
-        <TouchableOpacity onPress={goBack} hitSlop={10} accessibilityRole="button" accessibilityLabel="Voltar">
-          <Ionicons name="arrow-back" size={24} color="#fff" />
-        </TouchableOpacity>
+        <View />
       </ProfileBanner>
 
       <Text style={styles.name}>{p.name || "Membro do Focus"}</Text>
@@ -57,19 +56,37 @@ export default function UserProfile() {
       ) : null}
       {p.showBooks ? <PublicShelf books={data.books} reviews={data.reviews} /> : null}
       {!p.showStats && !p.showBooks ? <Text style={styles.bio}>Este perfil é privado.</Text> : null}
-
-      <Text style={styles.note}>
-        Prévia local: mostra o que esse amigo salvou neste aparelho. Entre aparelhos, depende do servidor.
-      </Text>
     </ScrollView>
+
+    {/* Botão de voltar fixo: continua visível ao rolar o perfil */}
+    <TouchableOpacity
+      style={styles.floatingBack}
+      onPress={goBack}
+      hitSlop={10}
+      accessibilityRole="button"
+      accessibilityLabel="Voltar"
+    >
+      <Ionicons name="arrow-back" size={22} color="#fff" />
+    </TouchableOpacity>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0f172a" },
+  floatingBack: {
+    position: "absolute",
+    top: 14,
+    left: 14,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(15,23,42,0.65)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   name: { color: "#fff", fontSize: 22, fontWeight: "700", textAlign: "center", marginTop: 8 },
   username: { color: "#94a3b8", fontSize: 14, textAlign: "center" },
   status: { color: "#cbd5f5", fontSize: 13, textAlign: "center", marginTop: 6 },
   bio: { color: "#e2e8f0", fontSize: 14, textAlign: "center", marginTop: 8, marginHorizontal: 24 },
-  note: { color: "#64748b", fontSize: 11, textAlign: "center", marginTop: 16, marginHorizontal: 24 },
 });

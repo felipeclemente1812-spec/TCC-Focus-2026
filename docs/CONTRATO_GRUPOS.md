@@ -1,16 +1,15 @@
-# Contrato de dados — Grupos de amigos (para o backend)
+# Grupos de amigos — como estão guardados
 
-O front-end de grupos já está pronto e funciona como **protótipo local** (`services/groupsService.ts` → `localGroupsService`). Os grupos ficam num registro do aparelho (`focus:v1:grupos`), compartilhado entre as contas que entram nele: dá para **entrar por código** (`FOCUS-XXXX`) e competir com outra conta no mesmo aparelho. Entre aparelhos diferentes é preciso o backend. Este documento descreve o que o backend precisa oferecer para os grupos funcionarem entre usuários reais. O front-end não altera Firebase, coleções nem regras; isso fica com o responsável pelo backend.
+Os grupos funcionam em tempo real entre aparelhos pelo Firestore (`services/groupsService.ts`
+→ `firestoreGroupsService`). As telas usam só o `GroupsContext`; as regras de pontuação
+(`groupRanking`, `memberDone`, `taskXp`, validações) são funções puras no mesmo arquivo.
 
-## Como trocar a implementação
+- Entrar por código (`FOCUS-XXXX`) funciona de qualquer aparelho (`groupCodes/{código}`).
+- Fotos do grupo, das provas e do mural ficam no **Firebase Storage** (`users/{uid}/...`);
+  o grupo guarda só o link.
+- Não há participantes de exemplo: o ranking mostra apenas membros reais.
 
-As telas usam apenas o `GroupsContext`, que hoje chama `localGroupsService`. Para ir ao servidor:
-
-1. Criar `firestoreGroupsService` com as mesmas operações (carregar, criar grupo, convidar, criar/remover tarefa, concluir tarefa, publicar no mural).
-2. Trocar `const service = localGroupsService` em `context/GroupsContext.tsx`.
-3. As regras puras (`groupRanking`, `memberDone`, `taskXp`, validações) continuam iguais.
-
-## Estrutura sugerida no Firestore
+## Estrutura de referência (versão em subcoleções)
 
 ```
 groups/{groupId}
@@ -55,16 +54,6 @@ O id determinístico de `completions` (`memberId_taskId_period`) impede pontuar 
 - `completions`: o usuário só cria documentos com `memberId == request.auth.uid`.
 - `tasks`: só membros criam; só quem criou remove.
 - `posts` e fotos do Storage em `groups/{id}/...`: só membros leem. **É isso que faz a foto do mural aparecer só entre os membros do grupo.**
-
-## Funcionalidades que dependem disso
-
-| No app hoje (protótipo) | Com o backend |
-|---|---|
-| Entrar por código funciona entre contas do mesmo aparelho | Entrar por código de qualquer aparelho (consulta `groups` onde `code == X` e adiciona o uid em `memberIds`) |
-| Convite fica "pendente" no aparelho | Convite chega ao amigo (por @usuario/e-mail ou pelo código) |
-| "Amigos exemplo" com pontos fixos | Membros reais com pontos das `completions` |
-| Mural só neste aparelho | Mural compartilhado entre membros |
-| Botão de foto desativado | Upload para o Storage, visível só para membros |
 
 ## Pontuação (definida no front-end, em `constants/gamification.ts`)
 

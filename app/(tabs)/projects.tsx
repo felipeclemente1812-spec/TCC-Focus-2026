@@ -142,12 +142,8 @@ export default function Projects() {
   return (
     <ScreenShell
       title="Área de desenvolvimento pessoal"
-      right={
-        <TouchableOpacity onPress={() => setShowForm(!showForm)} hitSlop={10} accessibilityLabel="Novo">
-          <Ionicons name={showForm ? "close" : "add-circle-outline"} size={26} color="#FFF" />
-        </TouchableOpacity>
-      }
-    >
+      fixed={
+        <>
       <View style={[ui.chips, { marginTop: 0, marginBottom: 12 }]}>
         {(["todos", ...KINDS] as const).map((k) => (
           <TouchableOpacity
@@ -162,6 +158,38 @@ export default function Projects() {
           </TouchableOpacity>
         ))}
       </View>
+        </>
+      }
+      right={
+        <TouchableOpacity onPress={() => setShowForm(!showForm)} hitSlop={10} accessibilityLabel="Novo">
+          <Ionicons name={showForm ? "close" : "add-circle-outline"} size={26} color="#FFF" />
+        </TouchableOpacity>
+      }
+    >
+      {/* PROJETO: separar as criações */}
+      {filter === "projeto" ? (
+        <View style={styles.subTabs}>
+          {(
+            [
+              ["todos", "Todos os projetos"],
+              ["criacoes", `Criações (${creations})`],
+              ["outros", "Outros projetos"],
+            ] as const
+          ).map(([id, label]) => (
+            <TouchableOpacity
+              key={id}
+              style={[styles.subTab, sub === id && { backgroundColor: id === "criacoes" ? THEME.criacao.color : THEME.projeto.color }]}
+              onPress={() => setSub(id)}
+              accessibilityRole="tab"
+              aria-selected={sub === id}
+            >
+              <Text style={styles.subTabText} numberOfLines={1}>
+                {label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      ) : null}
 
       {/* PROJETO: separar as criações */}
       {filter === "projeto" ? (
@@ -347,10 +375,10 @@ function ProjectCard({ project: p }: { project: Project }) {
                 <TouchableOpacity style={[ui.chip, { backgroundColor: theme.color, borderColor: theme.color }]} onPress={addNote}>
                   <Text style={ui.chipText}>{theme.noteButton}</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={ui.chip} onPress={async () => { const f = await pickImage(); if (f) planner.addProjectFile(p.id, f); }}>
+                <TouchableOpacity style={ui.chip} onPress={async () => { const f = await pickImage("projetos"); if (f) planner.addProjectFile(p.id, f); }}>
                   <Text style={ui.chipText}><Ionicons name="image-outline" /> Foto</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={ui.chip} onPress={async () => { const f = await pickDocument(); if (f) planner.addProjectFile(p.id, f); }}>
+                <TouchableOpacity style={ui.chip} onPress={async () => { const f = await pickDocument(undefined, "projetos"); if (f) planner.addProjectFile(p.id, f); }}>
                   <Text style={ui.chipText}><Ionicons name="document-outline" /> PDF/Word</Text>
                 </TouchableOpacity>
               </View>

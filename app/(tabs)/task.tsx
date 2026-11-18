@@ -1,6 +1,4 @@
 import { Ionicons } from "@expo/vector-icons";
-import * as DocumentPicker from "expo-document-picker";
-import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useContext, useEffect, useRef, useState } from "react";
@@ -36,7 +34,7 @@ import { ZoomablePhoto } from "@/components/PhotoViewer";
 import { RoutineContext } from "@/context/RoutineContext";
 import { confirmAction } from "@/utils/feedback";
 import { openDoNotDisturb } from "@/utils/focusMode";
-import { PHOTO_QUALITY } from "@/utils/files";
+import { pickDocument, pickImage } from "@/utils/files";
 import {
   Attachment,
   Entry,
@@ -212,7 +210,7 @@ function Screen({
   return (
     <View style={styles.container}>
       <LinearGradient colors={["#6B4A91", "#43247D"]} style={styles.background}>
-        <ScrollView keyboardDismissMode="on-drag" ref={scrollRef} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <View style={styles.fixedHeader}>
           <View style={styles.header}>
             <TouchableOpacity onPress={onBack} hitSlop={10} accessibilityRole="button" accessibilityLabel="Voltar">
               <Ionicons name="arrow-back" style={styles.back} />
@@ -222,6 +220,8 @@ function Screen({
             </Text>
             <View style={{ width: 25 }} />
           </View>
+        </View>
+        <ScrollView keyboardDismissMode="on-drag" ref={scrollRef} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           {children}
         </ScrollView>
       </LinearGradient>
@@ -1659,30 +1659,10 @@ function AttachmentsCard({ taskId, accept }: { taskId: string; accept: "image" |
   const pick = async () => {
     setError("");
     try {
-      if (accept === "image") {
-        const result = await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ["images"],
-          quality: PHOTO_QUALITY,
-          base64: Platform.OS === "web",
-        });
-        if (result.canceled || !result.assets[0]) return;
-        const asset = result.assets[0];
-        const uri = Platform.OS === "web" && asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri;
-        setError(extras.addAttachment(taskId, uri, asset.fileName ?? "desenho", "image") ?? "");
-      } else {
-        const result = await DocumentPicker.getDocumentAsync({
-          type: [
-            "application/pdf",
-            "application/msword",
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            "text/plain",
-          ],
-          copyToCacheDirectory: true,
-        });
-        if (result.canceled || !result.assets[0]) return;
-        const asset = result.assets[0];
-        setError(extras.addAttachment(taskId, asset.uri, asset.name, "document") ?? "");
-      }
+      // O arquivo é enviado ao Firebase Storage e o anexo guarda o link
+      const file = accept === "image" ? await pickImage("anexos") : await pickDocument();
+      if (!file) return;
+      setError(extras.addAttachment(taskId, file.uri, file.name, file.kind) ?? "");
     } catch {
       setError("Não foi possível abrir o arquivo.");
     }
@@ -1728,9 +1708,6 @@ function AttachmentsCard({ taskId, accept }: { taskId: string; accept: "image" |
           </View>
         ))
       )}
-      {accept === "document" && Platform.OS === "web" ? (
-        <Text style={styles.hint}>No navegador o documento só abre até recarregar a página; no celular fica salvo.</Text>
-      ) : null}
     </View>
   );
 }
@@ -1738,7 +1715,9 @@ function AttachmentsCard({ taskId, accept }: { taskId: string; accept: "image" |
 const styles = StyleSheet.create({
   container: { flex: 1 },
   background: { flex: 1 },
-  content: { padding: 15, paddingBottom: 110 },
+  // Cabeçalho fixo: fica parado no topo enquanto o conteúdo rola
+  fixedHeader: { paddingHorizontal: 15, paddingTop: 15 },
+  content: { paddingHorizontal: 15, paddingTop: 4, paddingBottom: 110 },
 
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12, gap: 8 },
   back: { color: "#FFF", fontSize: 25 },

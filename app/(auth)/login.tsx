@@ -45,12 +45,11 @@ export default function LoginScreen() {
     }
 
     // Login por @usuário: descobre o e-mail da conta
-    // TODO Firebase: buscar em users (username == ...) — hoje só contas deste aparelho
     let emailLimpo = entrada;
     if (!entrada.includes("@") || entrada.startsWith("@")) {
       const achado = await profileService.emailForHandle(entrada);
       if (!achado) {
-        setErro("@usuário não encontrado neste aparelho. Entre com o e-mail.");
+        setErro("@usuário não encontrado. Confira o nome ou entre com o e-mail.");
         return;
       }
       emailLimpo = achado;

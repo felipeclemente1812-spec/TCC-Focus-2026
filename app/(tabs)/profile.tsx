@@ -14,9 +14,11 @@ import {
   View,
 } from "react-native";
 
+import { ZoomablePhoto } from "@/components/PhotoViewer";
 import { BadgeShowcase, ProfileBanner, PublicShelf } from "@/components/ProfileShowcase";
 import { auth } from "@/config/firebase";
 import { confirmAction, notify } from "@/utils/feedback";
+import { uploadWithFeedback } from "@/utils/files";
 import { FocusLogo } from "@/components/FocusLogo";
 import PostComposer from "@/components/PostComposer";
 import {
@@ -114,7 +116,15 @@ export default function Profile() {
       quality: 0.7,
     });
 
-    if (!result.canceled) setAvatar(result.assets[0].uri);
+    if (result.canceled) return;
+    // Envia a foto ao Firebase Storage e guarda o link (assim aparece em todos os aparelhos)
+    const asset = result.assets[0];
+    const url = await uploadWithFeedback(asset.uri, "avatar", {
+      name: asset.fileName ?? "avatar.jpg",
+      mimeType: asset.mimeType,
+      message: "Enviando foto de perfil...",
+    });
+    if (url) setAvatar(url);
   };
 
   const startEditing = () => {
@@ -154,13 +164,12 @@ export default function Profile() {
       return;
     }
 
-    // TODO Firebase: conferir o @ no servidor (hoje: contas deste aparelho)
     if (cleanUsername && (await profileService.isHandleTaken(cleanUsername, user.uid))) {
       setFormError(`@${cleanUsername} já está em uso.`);
       return;
     }
 
-    // Salvo pelo profileService (hoje no aparelho; depois users/{uid})
+    // Salvo na nuvem pelo profileService (users/{uid})
     updateUser({
       name: cleanName,
       username: cleanUsername,
@@ -190,7 +199,7 @@ export default function Profile() {
   const handleLogout = async () => {
     const ok = await confirmAction(
       "Sair da conta",
-      "Seu XP, rotina e histórico ficam salvos neste aparelho para quando você voltar.",
+      "Seu XP, rotina e histórico ficam salvos na sua conta para quando você voltar.",
       "Sair",
     );
     if (!ok) return;
@@ -225,7 +234,14 @@ export default function Profile() {
       aspect: [3, 1],
       quality: 0.7,
     });
-    if (!result.canceled) setBanner(result.assets[0].uri);
+    if (result.canceled) return;
+    const asset = result.assets[0];
+    const url = await uploadWithFeedback(asset.uri, "banner", {
+      name: asset.fileName ?? "capa.jpg",
+      mimeType: asset.mimeType,
+      message: "Enviando capa...",
+    });
+    if (url) setBanner(url);
   };
 
   const toggleFeatured = (id: string) =>
@@ -550,9 +566,14 @@ export default function Profile() {
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
           <View style={styles.postCard}>
-            <Text style={styles.postText}>
-              {item.text || "(publicação sem texto)"}
-            </Text>
+            {item.text ? <Text style={styles.postText}>{item.text}</Text> : null}
+            {item.image ? (
+              <ZoomablePhoto
+                uri={item.image}
+                style={styles.postImage}
+                label="Imagem da publicação"
+              />
+            ) : null}
           </View>
         )}
         ListEmptyComponent={
@@ -594,13 +615,17 @@ export default function Profile() {
               </TouchableOpacity>
             ) : null}
 
-            <TouchableOpacity style={styles.termsButton} onPress={() => router.push("/terms")} accessibilityRole="button">
-              <Ionicons name="document-text-outline" size={16} color="#DDD6FE" />
-              <Text style={styles.termsText}>Termos de Uso</Text>
-            </TouchableOpacity>
-
             <TouchableOpacity
-              style={styles.logout}
+              style={styles.termsButton}
+              onPress={() => router.push("/terms")}
+              accessibilityRole="button"
+              accessibilityLabel="Ler os Termos de Uso"
+            >
+              <Ionicons name="document-text-outline" size={16} color="#DDD6FE" />
+              <Text style={styles.termsButtonText}>Termos de Uso</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.logout, { marginTop: 12 }]}
               onPress={handleLogout}
               disabled={loggingOut}
               accessibilityRole="button"
@@ -756,16 +781,15 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 8,
     alignSelf: "center",
-    marginTop: 18,
-    paddingVertical: 10,
+    marginTop: 25,
+    paddingVertical: 12,
     paddingHorizontal: 20,
     minHeight: 44,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: "rgba(221,214,254,0.4)",
+    borderColor: "rgba(221,214,254,0.35)",
   },
-
-  termsText: { color: "#DDD6FE", fontSize: 14, fontWeight: "600" },
+  termsButtonText: { color: "#DDD6FE", fontSize: 14, fontWeight: "600" },
 
   logout: {
     flexDirection: "row",
@@ -918,6 +942,13 @@ const styles = StyleSheet.create({
   postText: {
     color: "#e2e8f0",
     fontSize: 14,
+  },
+
+  postImage: {
+    width: "100%",
+    height: 220,
+    borderRadius: 10,
+    marginTop: 8,
   },
 
   gridImage: {

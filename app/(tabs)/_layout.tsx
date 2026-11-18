@@ -8,6 +8,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import AlarmOverlay from "@/components/AlarmOverlay";
 import { FocusLoading } from "@/components/FocusLogo";
+import { TERMS_VERSION } from "@/constants/terms";
 import LevelUpOverlay from "@/components/LevelUpOverlay";
 import { UserContext } from "@/context/UserContext";
 
@@ -47,6 +48,11 @@ const Layout = () => {
 
   if (!userContext.user.uid) {
     return <Redirect href="/login" />;
+  }
+
+  // Contas que ainda não aceitaram a versão atual dos Termos de Uso passam pelo aceite
+  if (userContext.user.termsVersion !== TERMS_VERSION) {
+    return <Redirect href={{ pathname: "/terms", params: { mode: "accept" } }} />;
   }
 
   return (
@@ -207,7 +213,6 @@ const Layout = () => {
               <Tabs.Screen name="diary-entry" options={{ href: null }} />
               <Tabs.Screen name="user" options={{ href: null }} />
               <Tabs.Screen name="premium" options={{ href: null }} />
-              <Tabs.Screen name="terms" options={{ href: null }} />
             </Tabs>
           </KeyboardAvoidingView>
         </SafeAreaView>

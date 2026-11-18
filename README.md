@@ -1,50 +1,52 @@
-# Welcome to your Expo app 👋
+# Focus
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Aplicativo de organização pessoal e produtividade (TCC 2026): rotina de desafios, hábitos,
+ciclo de foco, estudos, finanças, diário, estante de livros, grupos de amigos com ranking,
+conquistas e XP.
 
-## Get started
+Feito com **Expo (React Native) + Expo Router + TypeScript** e **Firebase**
+(Authentication, Firestore e Storage).
 
-1. Install dependencies
-
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## Como rodar
 
 ```bash
-npm run reset-project
+npm install
+npx expo start      # abre o menu: Android, iOS ou web
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## Firebase
 
-## Learn more
+| Serviço | Para quê |
+|---|---|
+| Authentication | Login por e-mail/senha e por @usuário |
+| Firestore | Perfil, rotina, hábitos, finanças, diário, estante, grupos e publicações |
+| Storage | Fotos de perfil/capa, anexos, provas das tarefas, fotos de grupo e do mural, documentos |
 
-To learn more about developing your project with Expo, look at the following resources:
+A configuração está em `config/firebase.ts`.
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+### Regras de segurança
 
-## Join the community
+`firestore.rules` (dados) e `storage.rules` (arquivos) são as regras do projeto; cada uma vai no seu lugar do console.
 
-Join our community of developers creating universal apps.
+### Regras do Storage
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Os envios de imagem e documento só funcionam depois de publicar as regras de
+`storage.rules` (Firebase Console › Storage › Regras, ou `firebase deploy --only storage`).
+Cada pessoa escreve só na própria pasta (`users/{uid}/...`) e qualquer pessoa logada lê
+(assim os membros de um grupo enxergam as fotos uns dos outros). Limite: 20 MB por arquivo.
+
+## Estrutura
+
+```
+app/          telas (Expo Router): (auth) login/cadastro, (tabs) telas do app, terms, onboarding
+components/   componentes de interface (PostComposer, PhotoViewer, DialogHost...)
+context/      estado por usuário (XP, rotina, hábitos, grupos...)
+services/     acesso ao Firebase (perfil, grupos, arquivos)
+utils/        utilitários (arquivos, avisos, armazenamento na nuvem)
+constants/    catálogo de desafios, gamificação, textos dos Termos de Uso
+```
+
+## Termos de Uso
+
+O texto fica em `constants/terms.ts`. Ao publicar uma versão nova, altere `TERMS_VERSION`:
+todas as contas passam pela tela de aceite de novo no próximo acesso.

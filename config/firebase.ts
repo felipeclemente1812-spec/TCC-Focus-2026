@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { initializeApp } from "firebase/app";
 import { Auth, getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
 import { Platform } from "react-native";
 
 const firebaseConfig = {
@@ -40,3 +41,5 @@ if (Platform.OS === "web") {
 
 export const auth = authInstance;
 export const db = getFirestore(app);
+// Firebase Storage: fotos, anexos e documentos enviados pelo app
+export const storage = getStorage(app);

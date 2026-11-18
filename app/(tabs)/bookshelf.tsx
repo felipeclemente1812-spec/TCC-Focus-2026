@@ -87,7 +87,7 @@ export default function Bookshelf() {
   return (
     <View style={styles.container}>
       <LinearGradient colors={["#6B4A91", "#43247D"]} style={styles.background}>
-        <ScrollView keyboardDismissMode="on-drag" contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <View style={styles.fixedHeader}>
           <View style={styles.header}>
             <TouchableOpacity
               onPress={() => (router.canGoBack() ? router.back() : router.replace("/profile"))}
@@ -100,6 +100,8 @@ export default function Bookshelf() {
             <Text style={styles.title}>Minha Estante</Text>
             <View style={{ width: 25 }} />
           </View>
+        </View>
+        <ScrollView keyboardDismissMode="on-drag" contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
 
           <UsageMeter limit="livros" label="Livros na estante" />
 
@@ -328,7 +330,7 @@ export default function Bookshelf() {
 
           <Text style={styles.note}>
             Cadastrar livros não dá XP. Concluir um livro registrando a leitura vale +
-            {BOOK_DONE_XP} XP. Sua estante fica salva neste aparelho.
+            {BOOK_DONE_XP} XP.
           </Text>
         </ScrollView>
       </LinearGradient>
@@ -339,7 +341,9 @@ export default function Bookshelf() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   background: { flex: 1 },
-  content: { padding: 15, paddingBottom: 110 },
+  // Cabeçalho fixo: fica parado no topo enquanto o conteúdo rola
+  fixedHeader: { paddingHorizontal: 15, paddingTop: 15 },
+  content: { paddingHorizontal: 15, paddingTop: 4, paddingBottom: 110 },
 
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
   back: { color: "#FFF", fontSize: 25 },

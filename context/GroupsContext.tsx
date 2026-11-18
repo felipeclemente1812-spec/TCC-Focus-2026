@@ -51,14 +51,13 @@ type GroupsContextType = {
   joinByCode: (code: string) => Promise<Result & { id?: string }>;
   leaveGroup: (id: string) => void; // membro sai
   deleteGroup: (id: string) => void; // criador exclui
-  removeDemoMembers: (id: string) => void;
   invite: (groupId: string, handle: string) => Result;
   addTask: (groupId: string, title: string, frequency: Frequency, rule?: TaskRule) => Result;
   removeTask: (groupId: string, taskId: string) => void;
   // XP ganho (0 se já feito ou se ficou aguardando aprovação)
   completeTask: (groupId: string, taskId: string, photo: string | null, proof?: string) => Result & { gained: number; pending: boolean };
   reviewCompletion: (groupId: string, memberId: string, taskId: string, period: string, approve: boolean) => void;
-  addPost: (groupId: string, text: string) => Promise<void>;
+  addPost: (groupId: string, text: string, image?: string | null) => Promise<void>;
   // ADM
   setAdmin: (groupId: string, memberId: string, admin: boolean) => void;
   removeMember: (groupId: string, memberId: string) => void;
@@ -170,10 +169,6 @@ export function GroupsProvider({ uid, children }: { uid: string; children: React
     setAllGroups((prev) => prev.filter((g) => g.id !== id));
   };
 
-  const removeDemoMembers = (id: string) => {
-    update(id, (g) => ({ ...g, members: g.members.filter((m) => !m.isDemo) }));
-  };
-
   const invite = (groupId: string, handle: string) => {
     const error = validateInvite(handle);
     if (error) return { error };
@@ -262,7 +257,7 @@ export function GroupsProvider({ uid, children }: { uid: string; children: React
           xp,
           at: Date.now(),
           proof: cleanProof || undefined,
-          photo: withPhoto && !photo!.startsWith("data:") ? photo! : undefined,
+          photo: withPhoto && /^https?:\/\//i.test(photo!) ? photo! : undefined,
           hasPhoto: withPhoto || undefined,
           status: pending ? "pendente" : "ok",
           credited: !pending,
@@ -418,12 +413,12 @@ export function GroupsProvider({ uid, children }: { uid: string; children: React
     update(groupId, (g) => ({ ...g, events: (g.events ?? []).filter((e) => e.id !== eventId) }));
   };
 
-  const addPost = async (groupId: string, text: string) => {
+  const addPost = async (groupId: string, text: string, image?: string | null) => {
     if (!getGroup(groupId)) throw new Error("Grupo não encontrado.");
     update(groupId, (g) => ({
       ...g,
       posts: [
-        { id: `p-${Date.now()}`, authorId: uid, text, createdAt: Date.now() },
+        { id: `p-${Date.now()}`, authorId: uid, text, ...(image ? { image } : {}), createdAt: Date.now() },
         ...g.posts,
       ],
     }));
@@ -439,7 +434,6 @@ export function GroupsProvider({ uid, children }: { uid: string; children: React
         joinByCode,
         leaveGroup,
         deleteGroup,
-        removeDemoMembers,
         invite,
         addTask,
         removeTask,

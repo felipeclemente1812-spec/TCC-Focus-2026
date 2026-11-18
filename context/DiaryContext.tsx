@@ -8,8 +8,7 @@ import { FREE_LIMITS, limitReached, PremiumContext } from "@/context/PremiumCont
 
 // Diário (telas da Angela dentro do Focus, com o visual do app): anotações com
 // título, texto, cor de destaque, fonte e tamanho da letra. Escrever hoje (com conteúdo de verdade) cumpre "Escrever no diário".
-// Salvo LOCALMENTE neste aparelho, por usuário.
-// TODO Firebase: users/{uid}/diario/{id}
+// Salvo na nuvem (Firestore: users/{uid}/data/...), por usuário — via utils/localStore.
 
 export type DiaryEntry = {
   id: string;

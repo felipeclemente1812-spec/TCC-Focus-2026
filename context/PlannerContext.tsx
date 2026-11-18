@@ -15,7 +15,7 @@ import { FREE_LIMITS, limitReached, PremiumContext } from "@/context/PremiumCont
 // "prova" (foto ou anotação) para as que não têm como medir.
 // Também guarda as METAS PRÓPRIAS semanais/mensais (com check-in por dia).
 // O XP sai da rotina (RoutineContext -> XPContext); metas próprias valem metade.
-// Salvo LOCALMENTE por usuário — formato pronto para virar documentos no Firebase
+// Salvo na nuvem (Firestore), por usuário. Anexos ficam no Firebase Storage (só o link é guardado).
 // (cada lista vira uma subcoleção users/{uid}/<lista>).
 
 export type FileRef = { uri: string; name: string; kind: "image" | "document" };

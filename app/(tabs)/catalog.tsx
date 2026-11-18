@@ -144,6 +144,62 @@ export default function Catalog() {
   return (
     <View style={styles.container}>
       <LinearGradient colors={["#6B4A91", "#43247D"]} style={styles.background}>
+        <View style={styles.fixedHeader}>
+            <View style={styles.header}>
+              <TouchableOpacity
+                onPress={() =>
+                  router.canGoBack() ? router.back() : router.replace("/routine")
+                }
+                hitSlop={10}
+                accessibilityRole="button"
+                accessibilityLabel="Voltar"
+              >
+                <Ionicons name="arrow-back" style={styles.back} />
+              </TouchableOpacity>
+
+              <Text style={styles.title}>Catálogo de desafios</Text>
+
+              <View style={{ width: 25 }} />
+            </View>
+            {/* BUSCA */}
+            <View style={styles.searchBox}>
+              <Ionicons name="search" style={styles.searchIcon} color="#C7BADB" />
+              <TextInput
+                value={search}
+                onChangeText={setSearch}
+                placeholder="Buscar desafio, ex.: água, ler, treino"
+                placeholderTextColor="#9E94AB"
+                style={styles.searchInput}
+                accessibilityLabel="Buscar desafio"
+                autoCorrect={false}
+              />
+              {search ? (
+                <TouchableOpacity
+                  onPress={() => setSearch("")}
+                  hitSlop={10}
+                  accessibilityRole="button"
+                  accessibilityLabel="Limpar busca"
+                >
+                  <Ionicons name="close" style={styles.clear} />
+                </TouchableOpacity>
+              ) : null}
+            </View>
+
+            {/* FREQUÊNCIA */}
+            <View style={styles.tabs}>
+              {FREQUENCY_FILTERS.map((f) => (
+                <TouchableOpacity
+                  key={f.key}
+                  style={frequency === f.key ? styles.activeTab : styles.tab}
+                  onPress={() => setFrequency(f.key)}
+                  accessibilityRole="tab"
+                  aria-selected={frequency === f.key}
+                >
+                  <Text style={styles.tabText}>{f.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+        </View>
         <FlatList
           keyboardDismissMode="on-drag"
           data={results}
@@ -153,67 +209,11 @@ export default function Catalog() {
           keyboardShouldPersistTaps="handled"
           ListHeaderComponent={
             <>
-              <View style={styles.header}>
-                <TouchableOpacity
-                  onPress={() =>
-                    router.canGoBack() ? router.back() : router.replace("/routine")
-                  }
-                  hitSlop={10}
-                  accessibilityRole="button"
-                  accessibilityLabel="Voltar"
-                >
-                  <Ionicons name="arrow-back" style={styles.back} />
-                </TouchableOpacity>
-
-                <Text style={styles.title}>Catálogo de desafios</Text>
-
-                <View style={{ width: 25 }} />
-              </View>
-
               <Text style={styles.subtitle}>
                 {CATALOG.length} desafios em {CATEGORIES.length} categorias. Diário
                 +{XP_BY_FREQUENCY.daily} · semanal +{XP_BY_FREQUENCY.weekly} · mensal
                 +{XP_BY_FREQUENCY.monthly} XP.
               </Text>
-
-              {/* BUSCA */}
-              <View style={styles.searchBox}>
-                <Ionicons name="search" style={styles.searchIcon} color="#C7BADB" />
-                <TextInput
-                  value={search}
-                  onChangeText={setSearch}
-                  placeholder="Buscar desafio, ex.: água, ler, treino"
-                  placeholderTextColor="#9E94AB"
-                  style={styles.searchInput}
-                  accessibilityLabel="Buscar desafio"
-                  autoCorrect={false}
-                />
-                {search ? (
-                  <TouchableOpacity
-                    onPress={() => setSearch("")}
-                    hitSlop={10}
-                    accessibilityRole="button"
-                    accessibilityLabel="Limpar busca"
-                  >
-                    <Ionicons name="close" style={styles.clear} />
-                  </TouchableOpacity>
-                ) : null}
-              </View>
-
-              {/* FREQUÊNCIA */}
-              <View style={styles.tabs}>
-                {FREQUENCY_FILTERS.map((f) => (
-                  <TouchableOpacity
-                    key={f.key}
-                    style={frequency === f.key ? styles.activeTab : styles.tab}
-                    onPress={() => setFrequency(f.key)}
-                    accessibilityRole="tab"
-                    aria-selected={frequency === f.key}
-                  >
-                    <Text style={styles.tabText}>{f.label}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
 
               {/* CATEGORIAS */}
               <ScrollView
@@ -297,7 +297,8 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   background: { flex: 1 },
 
-  content: { padding: 15, paddingBottom: 110 },
+  fixedHeader: { paddingHorizontal: 15, paddingTop: 15 },
+  content: { paddingHorizontal: 15, paddingTop: 4, paddingBottom: 110 },
 
   header: {
     flexDirection: "row",

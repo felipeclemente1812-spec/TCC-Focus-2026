@@ -2,14 +2,9 @@
 //   groups/{groupId}      -> o grupo inteiro (mesmo formato do tipo Group) + memberIds
 //   groupCodes/{FOCUS-XX} -> { groupId, ownerId }  (entrar pelo código)
 // Gravação por campo: só o que mudou é enviado (tasks, completions, posts... separados).
+// Fotos (do grupo, das provas e do mural) ficam no Firebase Storage; aqui só o link.
 //
-// (comentário antigo do protótipo local abaixo)
-//
-// As telas só falam com a interface `GroupsService`. Hoje a implementação
-// guarda os grupos num registro DESTE aparelho (AsyncStorage), compartilhado
-// entre as contas que entram nele: assim um amigo pode entrar pelo código e
-// competir de verdade no mesmo aparelho. Entre aparelhos diferentes depende
-// do backend (outra implementação com a MESMA interface — docs/CONTRATO_GRUPOS.md).
+// As telas só falam com a interface `GroupsService` (docs/CONTRATO_GRUPOS.md).
 
 import { Frequency } from "@/constants/challenges";
 import { periodIdFor, XP_BY_FREQUENCY } from "@/constants/gamification";
@@ -30,16 +25,14 @@ import {
 import { db } from "@/config/firebase";
 
 export type GroupMember = {
-  id: string; // uid (ou id de exemplo)
+  id: string; // uid
   name: string;
-  isDemo: boolean; // participante fictício do protótipo
-  demoPoints?: number; // pontos fixos dos participantes de exemplo
 };
 
 export type GroupInvite = {
   handle: string; // @usuario ou e-mail
   invitedAt: number;
-  status: "pendente"; // aceitar depende do servidor
+  status: "pendente"; // vira membro quando a pessoa entra pelo código
 };
 
 // Regra para concluir uma tarefa do grupo (definida por um ADM)
@@ -69,11 +62,9 @@ export type GroupCompletion = {
   xp: number;
   at: number;
   proof?: string; // o que a pessoa contou (regra "texto") ou comentário junto da foto
-  // Foto da prova. Só vai para o Firestore quando for link (http) ou caminho curto do
-  // aparelho; foto em base64 (navegador) não é gravada para não estourar o limite do doc.
-  // TODO Firebase Storage: enviar a foto e guardar aqui a URL pública (aí todos veem).
+  // Foto da prova: link do Firebase Storage (todos os membros veem)
   photo?: string;
-  hasPhoto?: boolean; // a prova foi com foto (mesmo que a foto não esteja na nuvem)
+  hasPhoto?: boolean; // a prova foi com foto
   status?: "ok" | "pendente" | "recusada"; // sem = "ok"
   credited?: boolean; // XP pessoal já entrou (aprovações creditam depois)
   reviewedBy?: string;
@@ -107,6 +98,7 @@ export type GroupPost = {
   id: string;
   authorId: string;
   text: string;
+  image?: string; // link da imagem no Firebase Storage
   createdAt: number;
 };
 
@@ -126,7 +118,7 @@ export type Group = {
   events?: GroupEvent[];
   settings?: GroupSettings;
   savings?: Record<string, Record<string, { name: string; saved: number }>>; // mês -> uid -> valor
-  photo?: string | null; // foto do grupo (TODO Firebase: URL do Storage)
+  photo?: string | null; // foto do grupo (link do Firebase Storage)
 };
 
 export const MAX_GROUPS = 5;
@@ -146,7 +138,7 @@ export type GroupsService = {
 // ---------- implementação Firestore ----------
 
 const clean = <T,>(v: T): T => JSON.parse(JSON.stringify(v)); // remove undefined
-const memberIdsOf = (g: Group) => g.members.filter((m) => !m.isDemo).map((m) => m.id);
+const memberIdsOf = (g: Group) => g.members.map((m) => m.id);
 
 // Última versão conhecida do servidor, por grupo (base para calcular as diferenças)
 const synced = new Map<string, Group>();
@@ -158,7 +150,8 @@ function fromDoc(id: string, data: Record<string, unknown>): Group {
   return {
     ...g,
     id,
-    members: g.members ?? [],
+    // Grupos antigos ainda podem ter os "Amigos exemplo" do protótipo: saem aqui
+    members: (g.members ?? []).filter((m) => !(m as { isDemo?: boolean }).isDemo).map(({ id: mid, name }) => ({ id: mid, name })),
     invites: g.invites ?? [],
     tasks: g.tasks ?? [],
     completions: g.completions ?? [],
@@ -245,7 +238,7 @@ export const firestoreGroupsService: GroupsService = {
           return;
         }
         tx.update(ref, {
-          members: [...g.members, { id: member.id, name: member.name, isDemo: false }],
+          members: [...g.members, { id: member.id, name: member.name }],
           memberIds: [...g.memberIds, member.id],
           invites: (g.invites ?? []).filter((i) => !handles.includes(i.handle)),
         });
@@ -260,7 +253,7 @@ export const firestoreGroupsService: GroupsService = {
 export const normalizeCode = (code: string) => code.trim().toUpperCase();
 
 export const isMember = (group: Group, uid: string) =>
-  group.members.some((m) => m.id === uid && !m.isDemo);
+  group.members.some((m) => m.id === uid);
 
 // Criador é sempre ADM; outros ADMs são escolhidos por ele
 export const isAdmin = (group: Group, uid: string) =>
@@ -281,7 +274,7 @@ export function savingsRanking(group: Group, month: string) {
     .sort((a, b) => b.saved - a.saved);
 }
 
-// ---------- regras (puras, reaproveitáveis com qualquer backend) ----------
+// ---------- regras (puras, independem do Firebase) ----------
 
 const uid4 = () => Math.random().toString(36).slice(2, 6).toUpperCase();
 
@@ -292,13 +285,7 @@ export function newGroup(name: string, owner: { id: string; name: string }): Gro
     code: `FOCUS-${uid4()}`,
     ownerId: owner.id,
     createdAt: Date.now(),
-    members: [
-      { id: owner.id, name: owner.name, isDemo: false },
-      // Participantes de exemplo para demonstrar a competição
-      { id: "demo-1", name: "Amigo exemplo 1", isDemo: true, demoPoints: 700 },
-      { id: "demo-2", name: "Amigo exemplo 2", isDemo: true, demoPoints: 400 },
-      { id: "demo-3", name: "Amigo exemplo 3", isDemo: true, demoPoints: 100 },
-    ],
+    members: [{ id: owner.id, name: owner.name }],
     invites: [],
     tasks: [],
     completions: [],
@@ -348,16 +335,14 @@ export function memberPending(group: Group, memberId: string, task: GroupTask) {
 
 export type RankingRow = GroupMember & { points: number; position: number };
 
-// Pontos no grupo = XP das tarefas do grupo concluídas (exemplos: pontos fixos)
+// Pontos no grupo = XP das tarefas do grupo concluídas
 export function groupRanking(group: Group): RankingRow[] {
   return group.members
     .map((m) => ({
       ...m,
-      points: m.isDemo
-        ? m.demoPoints ?? 0
-        : group.completions
-            .filter((c) => c.memberId === m.id && counts(c))
-            .reduce((sum, c) => sum + c.xp, 0),
+      points: group.completions
+        .filter((c) => c.memberId === m.id && counts(c))
+        .reduce((sum, c) => sum + c.xp, 0),
     }))
     .sort((a, b) => b.points - a.points)
     .map((m, i) => ({ ...m, position: i + 1 }));

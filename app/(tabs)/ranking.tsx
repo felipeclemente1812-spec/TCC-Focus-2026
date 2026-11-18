@@ -34,7 +34,8 @@ export default function Ranking() {
   return (
     <View style={styles.container}>
       <LinearGradient colors={["#6B4A91", "#43247D"]} style={styles.background}>
-        <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={styles.content}>
+        {/* Cabeçalho fixo */}
+        <View style={styles.fixedHeader}>
           <TouchableOpacity
             onPress={() =>
               router.canGoBack() ? router.back() : router.replace("/challenges")
@@ -50,6 +51,8 @@ export default function Ranking() {
           <Text style={styles.subtitle}>
             Dispute com seus amigos dentro de cada grupo.
           </Text>
+        </View>
+        <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={styles.content}>
 
           {groups.length === 0 ? (
             <View style={styles.empty}>
@@ -106,15 +109,13 @@ export default function Ranking() {
                     <Text style={styles.name} numberOfLines={1}>
                       {isMe ? `${displayName(user)} (você)` : row.name}
                     </Text>
-                    {row.isDemo ? <Text style={styles.demoTag}>exemplo</Text> : null}
                     <Text style={styles.xp}>{row.points} pts</Text>
                   </View>
                 );
               })}
 
               <Text style={styles.note}>
-                Pontos = XP das tarefas do grupo. “Amigos exemplo” são fictícios
-                (protótipo); membros reais dependem do servidor.
+                Pontos = XP das tarefas do grupo concluídas por cada membro.
               </Text>
 
               {selected ? (
@@ -140,7 +141,8 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   background: { flex: 1 },
 
-  content: { padding: 15, paddingBottom: 110 },
+  fixedHeader: { paddingHorizontal: 15, paddingTop: 15 },
+  content: { paddingHorizontal: 15, paddingTop: 4, paddingBottom: 110 },
 
   back: { color: "#FFF", fontSize: 25 },
 
@@ -195,17 +197,6 @@ const styles = StyleSheet.create({
   avatar: { backgroundColor: "#7774D6", marginHorizontal: 7 },
 
   name: { color: "#FFF", flex: 1, fontSize: 13 },
-
-  demoTag: {
-    color: "#C7BADB",
-    fontSize: 10,
-    borderWidth: 1,
-    borderColor: "#5B21B6",
-    borderRadius: 6,
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-    marginRight: 6,
-  },
 
   xp: { color: "#B83CE5", fontSize: 13, fontWeight: "700" },
 

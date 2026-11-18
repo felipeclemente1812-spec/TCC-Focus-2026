@@ -26,7 +26,11 @@ export default function RootLayout() {
 
   // 🔒 Providers envolvem toda a app (auth + tabs).
   // SessionProviders (XP, rotina, foco) é recriado a cada troca de conta.
+  // O DialogHost fica FORA dos providers de sessão: ao criar a conta ou entrar, a sessão
+  // é recriada e tudo que está dentro dela é remontado. Se o aviso ficasse lá dentro,
+  // ele sumia (ou caía no alerta do sistema) justamente no momento do cadastro.
   return (
+    <>
     <UserProvider>
       <PostProvider>
         <SessionProviders>
@@ -36,12 +40,14 @@ export default function RootLayout() {
             <Stack.Screen name="(auth)/register" />
             <Stack.Screen name="(auth)/complete-profile" />
             <Stack.Screen name="onboarding" />
+            <Stack.Screen name="terms" />
             <Stack.Screen name="+not-found" />
             <Stack.Screen name="(tabs)" />
           </Stack>
-          <DialogHost />
         </SessionProviders>
       </PostProvider>
     </UserProvider>
+    <DialogHost />
+    </>
   );
 }

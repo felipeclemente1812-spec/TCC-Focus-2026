@@ -57,7 +57,7 @@ export default function Groups() {
   return (
     <View style={styles.container}>
       <LinearGradient colors={["#6B4A91", "#43247D"]} style={styles.background}>
-        <ScrollView keyboardDismissMode="on-drag" contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <View style={styles.fixedHeader}>
           <View style={styles.header}>
             <TouchableOpacity
               onPress={() =>
@@ -74,20 +74,12 @@ export default function Groups() {
 
             <View style={{ width: 25 }} />
           </View>
-
+        </View>
+        <ScrollView keyboardDismissMode="on-drag" contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <Text style={styles.subtitle}>
             Crie um grupo com amigos, definam tarefas juntos e disputem o ranking
             do grupo.
           </Text>
-
-          <View style={styles.demoBox}>
-            <Text style={styles.demoTitle}>Protótipo</Text>
-            <Text style={styles.demoText}>
-              Os grupos ficam salvos neste aparelho: outras contas que entrarem
-              aqui podem participar pelo código. Grupos entre aparelhos diferentes
-              dependem do servidor. Os “Amigos exemplo” só ilustram a competição.
-            </Text>
-          </View>
 
           <UsageMeter limit="grupos" label="Grupos" />
 
@@ -206,7 +198,9 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   background: { flex: 1 },
 
-  content: { padding: 15, paddingBottom: 110 },
+  // Cabeçalho fixo: fica parado no topo enquanto o conteúdo rola
+  fixedHeader: { paddingHorizontal: 15, paddingTop: 15 },
+  content: { paddingHorizontal: 15, paddingTop: 4, paddingBottom: 110 },
 
   header: {
     flexDirection: "row",
@@ -226,20 +220,6 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     marginBottom: 12,
   },
-
-  demoBox: {
-    backgroundColor: "#25193A",
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#5B21B6",
-    borderStyle: "dashed",
-    padding: 10,
-    marginBottom: 12,
-  },
-
-  demoTitle: { color: "#FFF", fontSize: 13, fontWeight: "700", marginBottom: 3 },
-
-  demoText: { color: "#C7BADB", fontSize: 12, lineHeight: 17 },
 
   empty: {
     backgroundColor: "#25193A",

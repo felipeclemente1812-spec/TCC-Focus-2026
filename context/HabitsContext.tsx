@@ -18,7 +18,7 @@ import { FREE_LIMITS, limitReached, PremiumContext } from "@/context/PremiumCont
 
 // Hábitos criados pela pessoa: dias da semana, horário opcional e
 // bônus de pontualidade. O XP vai para o mesmo XPContext (sem 2ª fonte).
-// Salvo LOCALMENTE neste aparelho, por usuário.
+// Salvo na nuvem (Firestore: users/{uid}/data/...), por usuário — via utils/localStore.
 
 export type Habit = {
   id: string;

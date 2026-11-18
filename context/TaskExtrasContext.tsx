@@ -33,7 +33,7 @@ import { FREE_LIMITS, limitReached, PremiumContext } from "@/context/PremiumCont
 // cronômetros, anotações, gratidões, flashcards, pessoas, 3 prioridades,
 // tarefas pendentes, sono, medições e anexos.
 // O XP continua saindo da rotina (RoutineContext -> XPContext), sem 2ª fonte.
-// Salvo LOCALMENTE neste aparelho, por usuário.
+// Salvo na nuvem (Firestore: users/{uid}/data/...), por usuário — via utils/localStore.
 
 export type ReminderSetting = { on: boolean; time: string; weekday?: number };
 export type SleepSettings = { bedtime: string; wake: string };
@@ -750,10 +750,8 @@ export function TaskExtrasProvider({ uid, children }: { uid: string; children: R
   // ---------- Anexos ----------
 
   const addAttachment = (taskId: string, uri: string, name: string, kind: Attachment["kind"]) => {
-    // No navegador a imagem vira texto (data:); limite para não lotar o armazenamento
-    if (uri.startsWith("data:") && uri.length > 1_500_000) {
-      return "Arquivo grande demais para salvar no navegador. Escolha um menor.";
-    }
+    // O anexo guarda só o link do Firebase Storage (arquivos locais não são aceitos)
+    if (!/^https?:\/\//i.test(uri)) return "Não foi possível anexar. Tente enviar o arquivo de novo.";
     update((d) => ({
       ...d,
       attachments: [{ id: newId("a"), taskId, uri, name: name.slice(0, 80), kind, at: Date.now() }, ...d.attachments],

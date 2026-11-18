@@ -53,7 +53,7 @@ export default function XpHistory() {
   return (
     <View style={styles.container}>
       <LinearGradient colors={["#6B4A91", "#43247D"]} style={styles.background}>
-        <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={styles.content}>
+        <View style={styles.fixedHeader}>
           <View style={styles.header}>
             <TouchableOpacity
               onPress={() => (router.canGoBack() ? router.back() : router.replace("/profile"))}
@@ -66,7 +66,8 @@ export default function XpHistory() {
             <Text style={styles.title}>Histórico de XP</Text>
             <View style={{ width: 25 }} />
           </View>
-
+        </View>
+        <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={styles.content}>
           <View style={styles.totalCard}>
             <Text style={styles.totalLabel}>XP total</Text>
             <Text style={styles.totalValue}>{xp.toLocaleString("pt-BR")} XP</Text>
@@ -179,7 +180,9 @@ export default function XpHistory() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   background: { flex: 1 },
-  content: { padding: 15, paddingBottom: 110 },
+  // Cabeçalho fixo: fica parado no topo enquanto o conteúdo rola
+  fixedHeader: { paddingHorizontal: 15, paddingTop: 15 },
+  content: { paddingHorizontal: 15, paddingTop: 4, paddingBottom: 110 },
 
   header: {
     flexDirection: "row",

@@ -67,7 +67,6 @@ export default function GroupScreen() {
   const [proofFor, setProofFor] = useState<string | null>(null);
   const [proofText, setProofText] = useState("");
   const [proofPhoto, setProofPhoto] = useState<string | null>(null);
-  const [myShots, setMyShots] = useState<Record<string, string>>({});
   const [eventTitle, setEventTitle] = useState("");
   const [eventDate, setEventDate] = useState("");
   const [eventTime, setEventTime] = useState("");
@@ -97,7 +96,6 @@ export default function GroupScreen() {
     addPost,
     deleteGroup,
     leaveGroup,
-    removeDemoMembers,
     reviewCompletion,
     setAdmin,
     removeMember,
@@ -162,9 +160,6 @@ export default function GroupScreen() {
       setMessage({ text: result.error, error: true });
       return;
     }
-    // A foto fica na memória desta sessão (no navegador ela não vai para a nuvem)
-    const task = group.tasks.find((t) => t.id === taskId);
-    if (proofPhoto && task) setMyShots((s) => ({ ...s, [`${group.id}:${taskPeriod(task)}`]: proofPhoto }));
     setProofFor(null);
     setProofPhoto(null);
     if (result.pending) setMessage({ text: "Enviado! Um ADM do grupo vai aprovar.", error: false });
@@ -173,13 +168,9 @@ export default function GroupScreen() {
 
   const pendingReviews = group.completions.filter((c) => c.status === "pendente" && c.memberId !== user.uid);
 
-  // Foto da prova que dá para mostrar neste aparelho: link da nuvem (http), a sua
-  // foto desta sessão ou o caminho salvo no seu próprio celular
-  const photoOf = (c: (typeof group.completions)[number]) => {
-    if (c.photo?.startsWith("http")) return c.photo;
-    if (c.memberId !== user.uid) return null;
-    return myShots[`${group.id}:${c.period}`] ?? c.photo ?? null;
-  };
+  // Foto da prova: link do Firebase Storage (todos os membros veem)
+  const photoOf = (c: (typeof group.completions)[number]) =>
+    c.photo?.startsWith("http") ? c.photo : null;
 
   const handleAddEvent = () => {
     const day = parseDate(eventDate);
@@ -223,7 +214,7 @@ export default function GroupScreen() {
       return;
     }
     setInviteHandle("");
-    setMessage({ text: "Convite registrado (envio depende do servidor).", error: false });
+    setMessage({ text: `Convite registrado. Passe o código ${group.code} para essa pessoa entrar.`, error: false });
   };
 
   const handleLeave = async () => {
@@ -237,19 +228,10 @@ export default function GroupScreen() {
     router.replace("/groups");
   };
 
-  const handleRemoveDemo = async () => {
-    const ok = await confirmAction(
-      "Remover exemplos",
-      "Remover os “Amigos exemplo” do ranking deste grupo?",
-      "Remover",
-    );
-    if (ok) removeDemoMembers(group.id);
-  };
-
   const handleDelete = async () => {
     const ok = await confirmAction(
       "Excluir grupo",
-      `Excluir "${group.name}"? Tarefas, ranking e mural do grupo serão apagados deste aparelho.`,
+      `Excluir "${group.name}"? Tarefas, ranking e mural do grupo serão apagados para todos os membros.`,
       "Excluir",
     );
     if (!ok) return;
@@ -260,7 +242,7 @@ export default function GroupScreen() {
   return (
     <View style={styles.container}>
       <LinearGradient colors={["#6B4A91", "#43247D"]} style={styles.background}>
-        <ScrollView keyboardDismissMode="on-drag" contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <View style={styles.fixedHeader}>
           <View style={styles.header}>
             <TouchableOpacity
               onPress={goBack}
@@ -277,13 +259,14 @@ export default function GroupScreen() {
 
             <View style={{ width: 25 }} />
           </View>
-
+        </View>
+        <ScrollView keyboardDismissMode="on-drag" stickyHeaderIndices={[2]} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           {/* FOTO DO GRUPO (ADM troca) */}
           <View style={styles.photoWrap}>
             <TouchableOpacity
               disabled={!admin}
               onPress={async () => {
-                const f = await pickImage();
+                const f = await pickImage("grupos");
                 if (f) setGroupPhoto(group.id, f.uri);
               }}
               accessibilityRole="button"
@@ -442,7 +425,7 @@ export default function GroupScreen() {
                         <TouchableOpacity
                           style={[styles.chip, styles.cameraButton]}
                           onPress={async () => {
-                            const shot = await takePhoto();
+                            const shot = await takePhoto("provas");
                             if (shot) setProofPhoto(shot.uri);
                           }}
                           accessibilityRole="button"
@@ -675,8 +658,7 @@ export default function GroupScreen() {
           {section === "ranking" && (
             <>
               <Text style={styles.hint}>
-                Pontos = XP das tarefas do grupo concluídas. Os “Amigos exemplo” têm
-                pontos fixos só para demonstração.
+                Pontos = XP das tarefas do grupo concluídas por cada membro.
               </Text>
               {ranking.map((row) => {
                 const isMe = row.id === user.uid;
@@ -697,7 +679,6 @@ export default function GroupScreen() {
                     <Text style={styles.rankName} numberOfLines={1}>
                       {isMe ? `${displayName(user)} (você)` : row.name}
                     </Text>
-                    {row.isDemo ? <Text style={styles.demoTag}>exemplo</Text> : null}
                     <Text style={styles.rankPoints}>{row.points} pts</Text>
                   </View>
                 );
@@ -740,9 +721,8 @@ export default function GroupScreen() {
                 Publicações visíveis só para os membros deste grupo.
               </Text>
               <PostComposer
-                onSubmit={(text) => addPost(group.id, text)}
+                onSubmit={(text, image) => addPost(group.id, text, image)}
                 placeholder="Escreva para o grupo..."
-                imageNotice="Fotos no mural do grupo (vistas só pelos membros) ficam disponíveis quando o armazenamento de arquivos for integrado ao servidor."
               />
               {group.posts.length === 0 ? (
                 <Text style={styles.emptyText}>Nenhuma publicação no grupo ainda.</Text>
@@ -750,7 +730,10 @@ export default function GroupScreen() {
                 group.posts.map((p) => (
                   <View key={p.id} style={styles.post}>
                     <Text style={styles.postAuthor}>{memberName(p.authorId)}</Text>
-                    <Text style={styles.postText}>{p.text}</Text>
+                    {p.text ? <Text style={styles.postText}>{p.text}</Text> : null}
+                    {p.image ? (
+                      <ZoomablePhoto uri={p.image} style={styles.postImage} label="Imagem da publicação" />
+                    ) : null}
                     <Text style={styles.postDate}>
                       {new Date(p.createdAt).toLocaleString("pt-BR", {
                         day: "2-digit",
@@ -772,7 +755,6 @@ export default function GroupScreen() {
                 <View key={m.id} style={styles.memberRow}>
                   <TouchableOpacity
                     style={{ flex: 1 }}
-                    disabled={m.isDemo}
                     onPress={() => router.push({ pathname: "/user", params: { id: m.id } })}
                     accessibilityRole="button"
                     accessibilityLabel={`Ver perfil de ${m.name}`}
@@ -781,9 +763,9 @@ export default function GroupScreen() {
                       {m.id === user.uid ? `${displayName(user)} (você)` : m.name}
                     </Text>
                   </TouchableOpacity>
-                  <Text style={styles.memberRole}>{m.isDemo ? "exemplo" : roleOf(m.id)}</Text>
+                  <Text style={styles.memberRole}>{roleOf(m.id)}</Text>
                   {/* Só o criador promove ou tira ADM */}
-                  {group.ownerId === user.uid && !m.isDemo && m.id !== group.ownerId ? (
+                  {group.ownerId === user.uid && m.id !== group.ownerId ? (
                     <TouchableOpacity
                       style={[styles.chip, { marginLeft: 6, paddingVertical: 4 }]}
                       onPress={() => setAdmin(group.id, m.id, roleOf(m.id) !== "ADM")}
@@ -868,20 +850,9 @@ export default function GroupScreen() {
                 </TouchableOpacity>
                 <Text style={styles.limit}>
                   Para entrar, o amigo usa o código {group.code} em Grupos › Entrar
-                  com código. Neste aparelho já funciona; o envio do convite e a
-                  entrada a partir de outros aparelhos dependem do servidor.
+                  com código. Quando ele entrar, o convite deixa de ficar pendente.
                 </Text>
               </View>
-
-              {group.ownerId === user.uid && group.members.some((m) => m.isDemo) ? (
-                <TouchableOpacity
-                  style={styles.secondary}
-                  onPress={handleRemoveDemo}
-                  accessibilityRole="button"
-                >
-                  <Text style={styles.secondaryText}>Remover participantes de exemplo</Text>
-                </TouchableOpacity>
-              ) : null}
 
               {group.ownerId === user.uid ? (
                 <TouchableOpacity
@@ -912,7 +883,9 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   background: { flex: 1 },
 
-  content: { padding: 15, paddingBottom: 110 },
+  // Cabeçalho fixo: fica parado no topo enquanto o conteúdo rola
+  fixedHeader: { paddingHorizontal: 15, paddingTop: 15 },
+  content: { paddingHorizontal: 15, paddingTop: 4, paddingBottom: 110 },
 
   notFound: { flex: 1, justifyContent: "center", padding: 20 },
 
@@ -1111,17 +1084,6 @@ const styles = StyleSheet.create({
 
   rankName: { color: "#FFF", fontSize: 14, flex: 1 },
 
-  demoTag: {
-    color: "#C7BADB",
-    fontSize: 10,
-    borderWidth: 1,
-    borderColor: "#5B21B6",
-    borderRadius: 6,
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-    marginRight: 6,
-  },
-
   rankPoints: { color: "#B83CE5", fontSize: 14, fontWeight: "700" },
   saveBar: { height: 6, backgroundColor: "#57356F", borderRadius: 6, marginTop: 4, overflow: "hidden" },
   saveFill: { height: "100%", backgroundColor: "#0EA5E9" },
@@ -1136,6 +1098,8 @@ const styles = StyleSheet.create({
   postAuthor: { color: "#FFF", fontSize: 13, fontWeight: "700" },
 
   postText: { color: "#E2E8F0", fontSize: 14, marginTop: 4 },
+
+  postImage: { width: "100%", height: 220, borderRadius: 10, marginTop: 8 },
 
   postDate: { color: "#9E94AB", fontSize: 11, marginTop: 6 },
 

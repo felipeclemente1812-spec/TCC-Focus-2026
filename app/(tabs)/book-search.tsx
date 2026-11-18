@@ -151,7 +151,7 @@ export default function BookSearch() {
   return (
     <View style={styles.container}>
       <LinearGradient colors={["#6B4A91", "#43247D"]} style={styles.background}>
-        <ScrollView keyboardDismissMode="on-drag" contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <View style={styles.fixedHeader}>
           <View style={styles.header}>
             <TouchableOpacity onPress={goBack} hitSlop={10} accessibilityRole="button" accessibilityLabel="Voltar">
               <Ionicons name="arrow-back" style={styles.back} />
@@ -159,7 +159,8 @@ export default function BookSearch() {
             <Text style={styles.title}>Adicionar livro</Text>
             <View style={{ width: 25 }} />
           </View>
-
+        </View>
+        <ScrollView keyboardDismissMode="on-drag" contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           {/* BUSCA */}
           <View style={styles.searchBox}>
             <Ionicons name="search" style={styles.searchIcon} color="#C7BADB" />
@@ -336,7 +337,9 @@ export default function BookSearch() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   background: { flex: 1 },
-  content: { padding: 15, paddingBottom: 110 },
+  // Cabeçalho fixo: fica parado no topo enquanto o conteúdo rola
+  fixedHeader: { paddingHorizontal: 15, paddingTop: 15 },
+  content: { paddingHorizontal: 15, paddingTop: 4, paddingBottom: 110 },
   flex: { flex: 1 },
 
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },

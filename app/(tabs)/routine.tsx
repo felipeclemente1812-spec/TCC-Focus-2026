@@ -77,7 +77,7 @@ export default function Routine() {
   return (
     <View style={styles.container}>
       <LinearGradient colors={["#6B4A91", "#43247D"]} style={styles.background}>
-        <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={styles.content}>
+        <View style={styles.fixedHeader}>
           <View style={styles.header}>
             <TouchableOpacity
               onPress={() =>
@@ -94,7 +94,8 @@ export default function Routine() {
 
             <View style={{ width: 25 }} />
           </View>
-
+        </View>
+        <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" stickyHeaderIndices={[1]} contentContainerStyle={styles.content}>
           <Text style={styles.subtitle}>
             Escolha desafios do catálogo ou crie seus hábitos. Tudo reinicia
             sozinho a cada dia, semana ou mês.
@@ -232,11 +233,6 @@ export default function Routine() {
           </Text>
           </>
           )}
-
-          <Text style={styles.note}>
-            Sua rotina fica salva neste aparelho. Sincronizar com a conta (em
-            outros aparelhos) depende do backend.
-          </Text>
         </ScrollView>
       </LinearGradient>
     </View>
@@ -247,7 +243,9 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   background: { flex: 1 },
 
-  content: { padding: 15, paddingBottom: 110 },
+  // Cabeçalho fixo: fica parado no topo enquanto o conteúdo rola
+  fixedHeader: { paddingHorizontal: 15, paddingTop: 15 },
+  content: { paddingHorizontal: 15, paddingTop: 4, paddingBottom: 110 },
 
   header: {
     flexDirection: "row",

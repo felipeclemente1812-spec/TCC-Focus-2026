@@ -1,16 +1,18 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
-import { Modal, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Modal, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-import { DialogRequest, subscribeDialogs } from "@/utils/feedback";
+import { DialogRequest, subscribeBusy, subscribeDialogs } from "@/utils/feedback";
 
 // Telinha sobreposta para avisos e confirmações (ideia do modal do Squill,
 // nas cores do Focus). Montada uma vez no layout raiz; confirmAction/notify
 // de utils/feedback abrem por aqui.
 export default function DialogHost() {
   const [queue, setQueue] = useState<DialogRequest[]>([]);
+  const [busy, setBusy] = useState<string | null>(null);
 
   useEffect(() => subscribeDialogs((req) => setQueue((q) => [...q, req])), []);
+  useEffect(() => subscribeBusy(setBusy), []);
 
   const current = queue[0];
 
@@ -20,6 +22,7 @@ export default function DialogHost() {
   };
 
   return (
+    <>
     <Modal
       transparent
       visible={!!current}
@@ -33,12 +36,21 @@ export default function DialogHost() {
               style={[
                 styles.iconCircle,
                 current.kind === "confirm" && styles.iconCircleDanger,
+                current.kind === "success" && styles.iconCircleSuccess,
               ]}
             >
               <Ionicons
-                name={current.kind === "confirm" ? "trash-outline" : "information-circle-outline"}
-                size={22}
-                color={current.kind === "confirm" ? "#FCA5A5" : "#DDD6FE"}
+                name={
+                  current.kind === "confirm"
+                    ? "trash-outline"
+                    : current.kind === "success"
+                      ? "checkmark-circle-outline"
+                      : "information-circle-outline"
+                }
+                size={current.kind === "success" ? 28 : 22}
+                color={
+                  current.kind === "confirm" ? "#FCA5A5" : current.kind === "success" ? "#86EFAC" : "#DDD6FE"
+                }
               />
             </View>
 
@@ -64,6 +76,16 @@ export default function DialogHost() {
         ) : null}
       </View>
     </Modal>
+
+    <Modal transparent visible={!!busy && !current} animationType="fade" onRequestClose={() => {}}>
+      <View style={styles.overlay}>
+        <View style={styles.busyBox}>
+          <ActivityIndicator color="#DDD6FE" />
+          <Text style={styles.busyText}>{busy}</Text>
+        </View>
+      </View>
+    </Modal>
+    </>
   );
 }
 
@@ -97,6 +119,24 @@ const styles = StyleSheet.create({
   iconCircleDanger: {
     backgroundColor: "rgba(239,68,68,0.18)",
   },
+  iconCircleSuccess: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "rgba(34,197,94,0.18)",
+  },
+  busyBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: "#25193A",
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderWidth: 1.5,
+    borderColor: "#7C3AED",
+  },
+  busyText: { color: "#fff", fontSize: 14, fontWeight: "600" },
   title: {
     color: "#fff",
     fontSize: 17,

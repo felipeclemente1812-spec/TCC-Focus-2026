@@ -20,7 +20,7 @@ import { FREE_LIMITS, limitReached, PremiumContext } from "@/context/PremiumCont
 // Minha Estante + meta diária de leitura.
 // XP (regras aprovadas): bater a meta do dia (+50, 1x/dia) e concluir um livro
 // com leitura registrada (+200, 1x/livro). Cadastrar livro não dá XP.
-// Salvo LOCALMENTE neste aparelho, por usuário.
+// Salvo na nuvem (Firestore: users/{uid}/data/...), por usuário — via utils/localStore.
 
 export type BookStatus = "quero" | "lendo" | "concluido";
 

@@ -4,7 +4,7 @@ import { Alert, Platform } from "react-native";
 // numa telinha sobreposta do próprio Focus; sem ele, caem no diálogo do sistema.
 
 export type DialogRequest = {
-  kind: "notify" | "confirm";
+  kind: "notify" | "confirm" | "success";
   title: string;
   message?: string;
   confirmLabel: string;
@@ -18,6 +18,45 @@ export function subscribeDialogs(fn: (req: DialogRequest) => void) {
   return () => {
     if (listener === fn) listener = null;
   };
+}
+
+// Aviso de sucesso (ex.: conta criada): mesma telinha, com ícone de confirmação.
+export function notifySuccess(title: string, message?: string, confirmLabel = "Continuar") {
+  if (listener) {
+    listener({ kind: "success", title, message, confirmLabel, resolve: () => {} });
+    return;
+  }
+  if (Platform.OS === "web") {
+    window.alert(message ? `${title}\n\n${message}` : title);
+    return;
+  }
+  Alert.alert(title, message);
+}
+
+// Indicador "Enviando..." sobre a tela enquanto algo demora (ex.: envio de foto).
+type BusyListener = (message: string | null) => void;
+let busyListener: BusyListener | null = null;
+let busyCount = 0;
+
+export function subscribeBusy(fn: BusyListener) {
+  busyListener = fn;
+  return () => {
+    if (busyListener === fn) busyListener = null;
+  };
+}
+
+export async function withBusy<T>(message: string, task: () => Promise<T>): Promise<T> {
+  busyCount += 1;
+  busyListener?.(message);
+  try {
+    return await task();
+  } finally {
+    busyCount -= 1;
+    if (busyCount <= 0) {
+      busyCount = 0;
+      busyListener?.(null);
+    }
+  }
 }
 
 export function notify(title: string, message?: string) {
